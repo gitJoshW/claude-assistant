@@ -425,223 +425,162 @@ async function start() {
 
 start();
 
+
 // ══════════════════════════════════════════════════════════
-//  GOOGLE HOME WEBHOOK
+//  GOOGLE HOME ROUTINES WEBHOOKS
 //
-//  LEARNING NOTE — How Google Actions webhooks work:
-//  When you say "Hey Google, talk to my assistant", Google's
-//  servers send a POST request to this endpoint with a JSON
-//  body describing what the user said (an "intent"). Your
-//  server processes it, optionally calls Claude, and returns
-//  a JSON response with what Google should say back.
+//  LEARNING NOTE — Why we switched from Actions to Routines:
 //
-//  The flow is:
-//  1. User speaks → Google speech-to-text → intent detected
-//  2. Google POSTs to /webhook/google with the intent + session
-//  3. This handler reads tasks/goals from DB, calls Claude
-//  4. Returns { prompt: { firstSimple: { speech: "..." } } }
-//  5. Google reads that text aloud on the Home device
+//  Google shut down conversational Actions for new projects
+//  in 2023. The replacement for personal use is Google Home
+//  Routines — simpler, but still powerful enough for our needs.
 //
-//  No auth header here — Google Actions signs requests with
-//  a JWT token we verify using the GOOGLE_ACTION_SECRET env var.
-//  For simplicity during development we skip verification,
-//  but the endpoint URL itself is secret enough for personal use.
+//  How it works:
+//  Each Routine in the Google Home app is triggered by a
+//  voice phrase and calls a webhook URL on your server.
+//  The server processes the request and returns plain text.
+//  The Routine then announces that text via your Google Home.
+//
+//  One Routine per command:
+//    "Hey Google, what are my tasks"
+//      → GET /webhook/routine/tasks
+//    "Hey Google, what should I focus on"
+//      → GET /webhook/routine/focus
+//    "Hey Google, morning briefing"
+//      → GET /webhook/routine/briefing
+//    "Hey Google, how are my goals"
+//      → GET /webhook/routine/goals
+//
+//  The response is plain text that Google Home reads aloud.
 // ══════════════════════════════════════════════════════════
 
-app.post('/webhook/google', async (req, res) => {
-  console.log('[GOOGLE] Incoming intent:', JSON.stringify(req.body?.intent, null, 2));
+async function buildRoutineResponse(cmd, extra) {
+  const tasks = await dbGet('tasks') || [];
+  const goals = await dbGet('goals') || [];
 
-  try {
-    const handler   = req.body?.handler?.name || '';
-    const intentName = req.body?.intent?.name || '';
-    const session   = req.body?.session || {};
-    const scene     = req.body?.scene || {};
+  // ── LIST TASKS ────────────────────────────────────────────
+  if (cmd === 'tasks') {
+    const open = tasks
+      .filter(t => !t.done)
+      .sort((a, b) => ({high:0,medium:1,low:2}[a.priority] - {high:0,medium:1,low:2}[b.priority]))
+      .slice(0, 5);
 
-    // Extract what the user said from slots/params
-    const params = req.body?.intent?.params || {};
-    const taskText = params?.task?.resolved || params?.task?.original || '';
-    const query    = params?.query?.resolved || params?.query?.original || '';
+    if (open.length === 0) return "You have no open tasks. Nice work!";
+    const list = open.map((t, i) => `${i + 1}: ${t.title}`).join('. ');
+    return `You have ${open.length} open task${open.length !== 1 ? 's' : ''}. ${list}.`;
+  }
 
-    console.log(`[GOOGLE] Handler: ${handler} | Intent: ${intentName} | Task: "${taskText}" | Query: "${query}"`);
+  // ── FOCUS RECOMMENDATION ──────────────────────────────────
+  if (cmd === 'focus') {
+    const openTasks = tasks.filter(t => !t.done).slice(0, 8);
+    if (openTasks.length === 0) return "You have no open tasks. You're all caught up!";
 
-    let speech = '';
-    let endConversation = false;
+    const taskList = openTasks.map(t => {
+      const due = t.dueDate ? `, due ${t.dueDate}` : '';
+      return `- [${t.priority}] ${t.title}${due}`;
+    }).join('\n');
 
-    // ── WELCOME ────────────────────────────────────────────
-    if (handler === 'welcome' || intentName === 'actions.intent.MAIN') {
-      const tasks = await dbGet('tasks') || [];
-      const open  = tasks.filter(t => !t.done).length;
-      const high  = tasks.filter(t => !t.done && t.priority === 'high').length;
-
-      if (open === 0) {
-        speech = "Your assistant is ready. You have no open tasks right now. Would you like to add one, or shall I tell you about your goals?";
-      } else if (high > 0) {
-        speech = `Your assistant is ready. You have ${open} open task${open !== 1 ? 's' : ''}, including ${high} high priority. You can say: add a task, what are my tasks, what should I focus on, or how are my goals.`;
-      } else {
-        speech = `Your assistant is ready. You have ${open} open task${open !== 1 ? 's' : ''}. You can say: add a task, what are my tasks, what should I focus on, or how are my goals.`;
-      }
-    }
-
-    // ── ADD TASK ───────────────────────────────────────────
-    else if (handler === 'add_task' || intentName === 'ADD_TASK') {
-      if (!taskText) {
-        speech = "What task would you like to add?";
-      } else {
-        // Use Claude to categorize and prioritize the spoken task
-        const systemPrompt = `You are a task organizer. Return ONLY valid JSON — no markdown, no backticks.
-Format: {"title": "string", "priority": "high"|"medium"|"low", "category": "string", "reason": "string"}`;
-
-        const raw    = await callClaude(systemPrompt, `Categorize this task: "${taskText}"`, 256);
-        const parsed = JSON.parse(raw);
-
-        const tasks = await dbGet('tasks') || [];
-        tasks.push({
-          id:        Date.now() + Math.random(),
-          title:     parsed.title,
-          priority:  parsed.priority,
-          category:  parsed.category,
-          reason:    parsed.reason,
-          dueDate:   null,
-          done:      false,
-          createdAt: new Date().toISOString()
-        });
-        await dbSet('tasks', tasks);
-
-        speech = `Got it. I've added "${parsed.title}" as a ${parsed.priority} priority ${parsed.category} task. Anything else?`;
-        console.log(`[GOOGLE] Task added: ${parsed.title}`);
-      }
-    }
-
-    // ── LIST TASKS ─────────────────────────────────────────
-    else if (handler === 'list_tasks' || intentName === 'LIST_TASKS') {
-      const tasks    = await dbGet('tasks') || [];
-      const openHigh = tasks.filter(t => !t.done && t.priority === 'high');
-      const openMed  = tasks.filter(t => !t.done && t.priority === 'medium');
-      const open     = [...openHigh, ...openMed].slice(0, 5);
-
-      if (open.length === 0) {
-        speech = "You have no open high or medium priority tasks right now. Nice work!";
-        endConversation = true;
-      } else {
-        const list = open.map((t, i) => `${i + 1}: ${t.title}`).join('. ');
-        speech = `Here are your top tasks. ${list}. Would you like to add a task, or hear what to focus on?`;
-      }
-    }
-
-    // ── WHAT TO FOCUS ON ───────────────────────────────────
-    else if (handler === 'focus' || intentName === 'FOCUS') {
-      const tasks    = await dbGet('tasks') || [];
-      const openTasks = tasks.filter(t => !t.done).slice(0, 8);
-
-      if (openTasks.length === 0) {
-        speech = "You have no open tasks. You're all caught up!";
-        endConversation = true;
-      } else {
-        const taskList = openTasks.map(t =>
-          `- [${t.priority}] ${t.title}${t.dueDate ? `, due ${t.dueDate}` : ''}`
-        ).join('\n');
-
-        const systemPrompt = `You are a voice assistant answering through a smart speaker.
-Give a SHORT spoken recommendation — 2-3 sentences maximum, no lists, no bullet points.
+    const systemPrompt = `You are a voice assistant on a smart speaker.
+Give a SHORT spoken recommendation — 2 sentences maximum. No lists, no bullet points.
 Speak naturally as if talking to someone. Today is ${new Date().toLocaleDateString()}.`;
 
-        speech = await callClaude(systemPrompt,
-          `The user asked what to focus on. Their tasks:\n${taskList}\n\nGive a brief spoken recommendation of what to tackle next and why.`, 200);
+    return await callClaude(systemPrompt,
+      `The user asked what to focus on. Their tasks:\n${taskList}\n\nBrief spoken recommendation.`, 150);
+  }
 
-        endConversation = false;
+  // ── GOALS SUMMARY ─────────────────────────────────────────
+  if (cmd === 'goals') {
+    const open = goals.filter(g => !g.achieved);
+    if (open.length === 0) return "You haven't set any long-term goals yet.";
+
+    const summaries = open.slice(0, 3).map(g => {
+      if (g.target && g.saved) {
+        const pct = Math.round((g.saved / g.target) * 100);
+        return `${g.title} at ${pct}%`;
       }
-    }
-
-    // ── GOALS ──────────────────────────────────────────────
-    else if (handler === 'goals' || intentName === 'GOALS') {
-      const goals      = await dbGet('goals') || [];
-      const openGoals  = goals.filter(g => !g.achieved);
-
-      if (openGoals.length === 0) {
-        speech = "You haven't added any long-term goals yet. You can add them in the app.";
-        endConversation = true;
-      } else {
-        const goalSummaries = openGoals.slice(0, 3).map(g => {
-          if (g.target && g.saved) {
-            const pct = Math.round((g.saved / g.target) * 100);
-            return `${g.title} is ${pct}% funded`;
-          }
-          return g.title;
-        });
-
-        if (goalSummaries.length === 1) {
-          speech = `Your long-term goal: ${goalSummaries[0]}. Keep at it!`;
-        } else {
-          const last = goalSummaries.pop();
-          speech = `Your long-term goals: ${goalSummaries.join(', ')}, and ${last}. Is there anything you'd like to add?`;
-        }
-      }
-    }
-
-    // ── ASK CLAUDE (free-form) ─────────────────────────────
-    else if (handler === 'ask_claude' || intentName === 'ASK_CLAUDE') {
-      const question = query || taskText;
-      if (!question) {
-        speech = "What would you like to ask?";
-      } else {
-        const tasks    = await dbGet('tasks') || [];
-        const goals    = await dbGet('goals') || [];
-        const taskCtx  = tasks.filter(t => !t.done).slice(0, 8)
-          .map(t => `- [${t.priority}] ${t.title}`).join('\n') || 'None';
-        const goalCtx  = goals.filter(g => !g.achieved)
-          .map(g => g.title).join(', ') || 'None';
-
-        const systemPrompt = `You are a voice assistant on a smart speaker. Answer in 2-3 spoken sentences maximum.
-No lists, no bullet points, no markdown. Natural conversational speech only.
-Today is ${new Date().toLocaleDateString()}.`;
-
-        speech = await callClaude(systemPrompt,
-          `Tasks: ${taskCtx}\nGoals: ${goalCtx}\n\nUser asked: "${question}"`, 200);
-      }
-    }
-
-    // ── GOODBYE ────────────────────────────────────────────
-    else if (handler === 'goodbye' || intentName === 'actions.intent.CANCEL') {
-      speech = "Got it. I'll keep an eye on your tasks. Goodbye!";
-      endConversation = true;
-    }
-
-    // ── UNKNOWN ────────────────────────────────────────────
-    else {
-      speech = "I can help you add tasks, list your tasks, tell you what to focus on, or give you a goal update. What would you like?";
-    }
-
-    // ── RESPONSE FORMAT ────────────────────────────────────
-    /*
-      LEARNING NOTE — Actions on Google response format
-      Google expects a specific JSON structure. The key fields:
-      - prompt.firstSimple.speech: what Google reads aloud
-      - scene.next.name: which scene to go to next
-      - session.params: data to carry through the conversation
-    */
-    const response = {
-      session: { id: session.id, params: session.params || {} },
-      prompt: {
-        override: false,
-        firstSimple: { speech, text: speech }
-      },
-      scene: endConversation
-        ? { name: scene.name, next: { name: 'actions.scene.END_CONVERSATION' } }
-        : { name: scene.name }
-    };
-
-    console.log(`[GOOGLE] Responding: "${speech.substring(0, 80)}..."`);
-    res.json(response);
-
-  } catch (err) {
-    console.error('[GOOGLE WEBHOOK ERROR]', err.message);
-    res.json({
-      prompt: {
-        firstSimple: {
-          speech: "Sorry, I ran into a problem. Please try again in a moment.",
-          text: "Sorry, I ran into a problem. Please try again in a moment."
-        }
-      }
+      return g.title;
     });
+
+    if (summaries.length === 1) return `Your goal: ${summaries[0]}.`;
+    const last = summaries.pop();
+    return `Your goals: ${summaries.join(', ')}, and ${last}.`;
+  }
+
+  // ── MORNING BRIEFING ──────────────────────────────────────
+  if (cmd === 'briefing') {
+    const open  = tasks.filter(t => !t.done);
+    const high  = open.filter(t => t.priority === 'high').length;
+    const today = new Date();
+    const soon  = open.filter(t => {
+      if (!t.dueDate) return false;
+      const diff = Math.round((new Date(t.dueDate + 'T00:00:00') - today) / 86400000);
+      return diff <= 1;
+    });
+
+    let msg = `Good morning. You have ${open.length} open task${open.length !== 1 ? 's' : ''}`;
+    if (high > 0)   msg += `, ${high} high priority`;
+    if (soon.length) msg += `, and ${soon.length} due today or tomorrow`;
+    msg += '. ';
+    if (open.length > 0) msg += `Your top task is: ${open[0].title}.`;
+    return msg;
+  }
+
+  // ── ADD TASK ──────────────────────────────────────────────
+  if (cmd === 'add') {
+    if (!extra) return "No task text received. Try adding the task in the app instead.";
+
+    const systemPrompt = `You are a task organizer. Return ONLY valid JSON — no markdown, no backticks.
+Format: {"title": "string", "priority": "high"|"medium"|"low", "category": "string", "reason": "string"}`;
+
+    const raw    = await callClaude(systemPrompt, `Categorize this task: "${extra}"`, 200);
+    const parsed = JSON.parse(raw);
+
+    const updated = [...tasks, {
+      id:        Date.now() + Math.random(),
+      title:     parsed.title,
+      priority:  parsed.priority,
+      category:  parsed.category,
+      reason:    parsed.reason,
+      dueDate:   null,
+      done:      false,
+      createdAt: new Date().toISOString()
+    }];
+    await dbSet('tasks', updated);
+    console.log(`[ROUTINE] Task added: ${parsed.title}`);
+    return `Added "${parsed.title}" as a ${parsed.priority} priority task.`;
+  }
+
+  return "I can help with: tasks, focus, goals, or briefing.";
+}
+
+// GET endpoint — returns plain text for Google Home to announce
+app.get('/webhook/routine/:cmd', async (req, res) => {
+  const { cmd } = req.params;
+  const extra   = req.query.task || req.query.q || '';
+  console.log(`[ROUTINE] cmd=${cmd} extra="${extra}"`);
+
+  try {
+    const text = await buildRoutineResponse(cmd, extra);
+    res.set('Content-Type', 'text/plain');
+    res.send(text);
+  } catch (err) {
+    console.error('[ROUTINE ERROR]', err.message);
+    res.set('Content-Type', 'text/plain');
+    res.send('Sorry, something went wrong. Please try again.');
+  }
+});
+
+// POST endpoint — also supported for flexibility
+app.post('/webhook/routine/:cmd', async (req, res) => {
+  const { cmd } = req.params;
+  const extra   = req.body?.task || req.query.task || '';
+  console.log(`[ROUTINE POST] cmd=${cmd} extra="${extra}"`);
+
+  try {
+    const text = await buildRoutineResponse(cmd, extra);
+    res.json({ speech: text, text });
+  } catch (err) {
+    console.error('[ROUTINE ERROR]', err.message);
+    res.json({ speech: 'Sorry, something went wrong.', text: 'Error' });
   }
 });
