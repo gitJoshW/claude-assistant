@@ -35,7 +35,70 @@
 
     /* LAYOUT */
     .main { display: grid; grid-template-columns: 240px 1fr 300px; min-height: calc(100vh - 52px); }
-    @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .sidebar-left, .sidebar-right { display: none; } }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+      .sidebar-left, .sidebar-right { display: none; }
+      .center { padding: 1rem; padding-bottom: 80px; }
+    }
+
+    /* ── MOBILE BOTTOM NAV ── */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 56px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      z-index: 200;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 0.5rem;
+    }
+    @media (max-width: 900px) { .mobile-nav { display: flex; } }
+
+    .mobile-nav-btn {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.2rem; background: transparent; border: none; box-shadow: none;
+      color: var(--text-muted); cursor: pointer; font-size: 0.6rem;
+      font-family: 'Instrument Sans', sans-serif; font-weight: 500;
+      letter-spacing: 0.04em; padding: 0.4rem 0.75rem; border-radius: 8px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .mobile-nav-btn svg { width: 20px; height: 20px; }
+    .mobile-nav-btn:hover, .mobile-nav-btn.active { color: var(--accent); background: var(--accent-light); transform: none; }
+
+    /* ── MOBILE DRAWER ── */
+    .mobile-drawer-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(26,26,20,0.4);
+      z-index: 300;
+      backdrop-filter: blur(2px);
+    }
+    .mobile-drawer-overlay.open { display: block; }
+
+    .mobile-drawer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      border-top: 1px solid var(--border);
+      z-index: 400;
+      padding: 1.25rem 1.25rem 2rem;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .mobile-drawer.open { transform: translateY(0); }
+
+    .drawer-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: var(--border2); margin: 0 auto 1.25rem;
+    }
+    .drawer-title {
+      font-size: 0.72rem; font-weight: 500; color: var(--text-dim);
+      letter-spacing: 0.04em; margin-bottom: 1rem;
+    }
     .sidebar-left, .sidebar-right { border-right: 1px solid var(--border); padding: 1.5rem 1.25rem; }
     .sidebar-right { border-right: none; border-left: 1px solid var(--border); }
     .section-label { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.85rem; font-weight: 500; }
@@ -341,6 +404,52 @@
     </div>
 
   </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav">
+  <button class="mobile-nav-btn active" id="mnav-tasks" onclick="mobileTab('tasks')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+    Tasks
+  </button>
+  <button class="mobile-nav-btn" id="mnav-goals" onclick="mobileTab('goals')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    Goals
+  </button>
+  <button class="mobile-nav-btn" id="mnav-ask" onclick="openDrawer('ask')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+    Ask Claude
+  </button>
+  <button class="mobile-nav-btn" id="mnav-more" onclick="openDrawer('more')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    More
+  </button>
+</nav>
+
+<!-- DRAWER OVERLAY -->
+<div class="mobile-drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- ASK CLAUDE DRAWER -->
+<div class="mobile-drawer" id="drawer-ask">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">Ask Claude</div>
+  <textarea id="ask-input-mobile" placeholder="What should I focus on today? What's urgent?" style="min-height:80px;margin-bottom:0.75rem"></textarea>
+  <button onclick="askClaudeMobile()" id="ask-btn-mobile" style="width:100%;margin-bottom:0.85rem">Ask</button>
+  <div id="claude-response-mobile" style="font-size:0.82rem;line-height:1.7;color:var(--text-dim);white-space:pre-wrap">Claude's answer will appear here.</div>
+</div>
+
+<!-- MORE DRAWER -->
+<div class="mobile-drawer" id="drawer-more">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">Notifications Sent</div>
+  <div id="notif-log-mobile" style="margin-bottom:1.25rem"><span style="font-size:0.74rem;color:var(--text-muted);font-style:italic">No notifications yet.</span></div>
+  <div class="drawer-title">Test</div>
+  <button onclick="triggerMorningBriefing()" style="width:100%;margin-bottom:0.5rem">Send Morning Briefing Now</button>
+  <div id="trigger-result-mobile" style="font-size:0.72rem;color:var(--text-muted)"></div>
+  <br/>
+  <div class="drawer-title" style="margin-top:0.75rem">About Me (Claude's Memory)</div>
+  <textarea id="memory-text-mobile" placeholder="Tell Claude about yourself…" style="min-height:80px;margin-bottom:0.6rem"></textarea>
+  <button class="btn-outline" style="width:100%" onclick="saveMemoryMobile()">Save Memory</button>
 </div>
 
 <script>
@@ -649,7 +758,15 @@ function addGoal() {
 }
 function updateGoalProgress(id, field, value) {
   const g = goals.find(g=>g.id===id);
-  if (g) { g[field] = field==='note'?value:(parseFloat(value)||0); pushGoals(); if(field!=='note') renderGoals(); }
+  if (!g) return;
+  if (field === 'note') {
+    g[field] = value;
+  } else {
+    const num = parseFloat(value);
+    g[field] = isNaN(num) ? null : num;
+  }
+  pushGoals();
+  if (field !== 'note') renderGoals();
 }
 function saveGoalNote(id) {
   const el = document.getElementById('goal-note-'+id);
@@ -796,37 +913,149 @@ function renderGoals() {
 }
 
 function renderGoalCard(g) {
-  const pct=g.target?Math.min(100,Math.round(g.saved/g.target*100)):null;
-  const progressHtml=g.target?`
+  const pct = g.target ? Math.min(100, Math.round(g.saved / g.target * 100)) : null;
+
+  // Progress bar (only when target is set)
+  const barHtml = g.target ? `
     <div class="goal-progress-row">
       <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${pct}%"></div></div>
       <span class="goal-progress-pct">${pct}%</span>
     </div>
-    <div class="goal-meta"><span class="goal-amount">Saved: <strong>$${g.saved.toLocaleString()}</strong> of <strong>$${g.target.toLocaleString()}</strong> &nbsp;·&nbsp; $${Math.max(0,g.target-g.saved).toLocaleString()} to go</span></div>
-    <div class="date-input-row" style="margin-top:0.4rem;margin-bottom:0.2rem">
-      <span>Update saved:</span>
-      <input type="number" value="${g.saved}" min="0" step="100" style="width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:0.75rem;padding:0.3rem 0.65rem;outline:none;min-height:unset" onchange="updateGoalProgress(${g.id},'saved',this.value)"/>
-    </div>`:'';
+    <div class="goal-meta"><span class="goal-amount">
+      <strong>$${g.saved.toLocaleString()}</strong> saved of
+      <strong>$${g.target.toLocaleString()}</strong> &nbsp;·&nbsp;
+      $${Math.max(0, g.target - g.saved).toLocaleString()} to go
+    </span></div>` : '';
+
+  // Always-visible editable amount fields
+  const numStyle = `background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:0.78rem;padding:0.35rem 0.6rem;outline:none;min-height:unset;width:100%;transition:border-color 0.2s`;
+  const amountsHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.65rem;margin-bottom:0.25rem">
+      <div>
+        <div style="font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.25rem">Target ($)</div>
+        <input type="number" value="${g.target || ''}" min="0" step="100" placeholder="Set target…"
+          style="${numStyle}"
+          onchange="updateGoalProgress(${g.id},'target',this.value)"
+          onfocus="this.style.borderColor='var(--accent2)'"
+          onblur="this.style.borderColor='var(--border)'" />
+      </div>
+      <div>
+        <div style="font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.25rem">Saved so far ($)</div>
+        <input type="number" value="${g.saved || ''}" min="0" step="100" placeholder="0"
+          style="${numStyle}"
+          onchange="updateGoalProgress(${g.id},'saved',this.value)"
+          onfocus="this.style.borderColor='var(--accent2)'"
+          onblur="this.style.borderColor='var(--border)'" />
+      </div>
+    </div>`;
+
   return `
-    <div class="goal-card ${g.achieved?'goal-achieved':''}">
+    <div class="goal-card ${g.achieved ? 'goal-achieved' : ''}">
       <div class="goal-header">
         <div class="goal-title">${escHtml(g.title)}</div>
         <div class="goal-actions">
-          <button class="task-action-btn" onclick="toggleGoalAchieved(${g.id})">${g.achieved?'Reopen':'✓ Done'}</button>
+          <button class="task-action-btn" onclick="toggleGoalAchieved(${g.id})">${g.achieved ? 'Reopen' : '✓ Done'}</button>
           <button class="task-action-btn del" onclick="deleteGoal(${g.id})">delete</button>
         </div>
       </div>
-      ${g.description?`<div class="goal-desc">${escHtml(g.description)}</div>`:''}
-      ${progressHtml}
-      <div class="goal-note" onclick="this.style.display='none';document.getElementById('gn-${g.id}').style.display='block';document.getElementById('gn-${g.id}').focus()">
-        ${escHtml(g.note)||'<em>Add a progress note…</em>'}
+      ${g.description ? `<div class="goal-desc">${escHtml(g.description)}</div>` : ''}
+      ${barHtml}
+      ${amountsHtml}
+      <div style="border-top:1px solid var(--border);margin-top:0.6rem;padding-top:0.6rem">
+        <div class="goal-note" onclick="this.style.display='none';document.getElementById('gn-${g.id}').style.display='block';document.getElementById('gn-${g.id}').focus()">
+          ${escHtml(g.note) || '<em>Add a progress note…</em>'}
+        </div>
+        <textarea id="gn-${g.id}" class="goal-note-input" style="display:none" onblur="saveGoalNote(${g.id})"
+          placeholder="Add a progress note…">${escHtml(g.note)}</textarea>
       </div>
-      <textarea id="gn-${g.id}" class="goal-note-input" style="display:none" onblur="saveGoalNote(${g.id})"
-        placeholder="Add a progress note…">${escHtml(g.note)}</textarea>
     </div>`;
 }
 
 function escHtml(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── MOBILE NAV & DRAWERS ──────────────────────────────────
+function mobileTab(tab) {
+  switchTab(tab);
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mnav-' + tab).classList.add('active');
+}
+
+function openDrawer(name) {
+  closeDrawer();
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.getElementById('drawer-' + name).classList.add('open');
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mnav-' + name).classList.add('active');
+
+  // Sync memory textarea in drawer
+  if (name === 'more') {
+    const memMain = document.getElementById('memory-text');
+    if (memMain) document.getElementById('memory-text-mobile').value = memMain.value;
+    syncNotifLogMobile();
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.querySelectorAll('.mobile-drawer').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  // Re-highlight the current tab
+  const tab = activeTab || 'tasks';
+  const btn = document.getElementById('mnav-' + tab);
+  if (btn) btn.classList.add('active');
+}
+
+// Ask Claude from mobile drawer — mirrors desktop askClaude()
+async function askClaudeMobile() {
+  const question = document.getElementById('ask-input-mobile').value.trim();
+  if (!question) return;
+  const btn = document.getElementById('ask-btn-mobile');
+  btn.disabled = true; btn.textContent = 'Thinking...';
+  document.getElementById('claude-response-mobile').textContent = '...';
+
+  const taskContext = tasks.length
+    ? tasks.map((t,i) => `${i+1}. [${t.priority.toUpperCase()}] ${t.title}${t.dueDate?' — due '+t.dueDate:''}${t.done?' ✓ DONE':''}`).join('\n')
+    : 'No tasks yet.';
+  const goalsContext = goals.filter(g=>!g.achieved).map(g=>g.title).join(', ');
+  const systemPrompt = `You are a helpful personal assistant. Be concise and direct. Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}.`;
+
+  try {
+    const response = await callClaude(systemPrompt,
+      `My tasks:\n${taskContext}${goalsContext?'\n\nLong-term goals: '+goalsContext:''}\n\nQuestion: ${question}`);
+    document.getElementById('claude-response-mobile').textContent = response;
+    // Also sync to desktop panel
+    document.getElementById('claude-response').textContent = response;
+  } catch(e) {
+    document.getElementById('claude-response-mobile').textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Ask';
+}
+
+function saveMemoryMobile() {
+  const val = document.getElementById('memory-text-mobile').value;
+  document.getElementById('memory-text').value = val;
+  // Trigger save via desktop function
+  const fakeEvent = { target: { textContent: 'Save' } };
+  memory = val;
+  localStorage.setItem('p3_memory', memory);
+  if (serverUrl) apiFetch('POST', '/api/memory', { memory });
+  document.getElementById('memory-text-mobile').style.borderColor = 'var(--accent2)';
+  setTimeout(() => document.getElementById('memory-text-mobile').style.borderColor = '', 1500);
+}
+
+function syncNotifLogMobile() {
+  const desktop = document.getElementById('notif-log');
+  const mobile  = document.getElementById('notif-log-mobile');
+  if (desktop && mobile) mobile.innerHTML = desktop.innerHTML;
+}
+
+// Override triggerMorningBriefing result to also show in mobile drawer
+const _origTrigger = triggerMorningBriefing;
+async function triggerMorningBriefing() {
+  await _origTrigger();
+  const result = document.getElementById('trigger-result').textContent;
+  document.getElementById('trigger-result-mobile').textContent = result;
+}
 
 document.addEventListener('keydown', e => {
   if ((e.metaKey||e.ctrlKey) && e.key==='Enter') {
