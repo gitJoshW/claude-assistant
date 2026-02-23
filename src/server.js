@@ -69,9 +69,7 @@ async function initDb() {
       ('tasks',            '[]'),
       ('goals',            '[]'),
       ('memory',           '""'),
-      ('notification_log', '[]'),
-      ('projects',         '[]'),
-      ('completion_log',   '[]')
+      ('notification_log', '[]')
     ON CONFLICT (key) DO NOTHING;
   `);
 
@@ -421,109 +419,12 @@ async function start() {
     scheduleMorningBriefing();
     scheduleDueCheck();
     scheduleFocusReminder();
-    scheduleWeeklySuggestions();
     console.log('   All schedulers running.\n');
   });
 }
 
 start();
 
-
-// ── PROJECTS ───────────────────────────────────────────────
-app.get('/api/projects', requireAuth, async (req, res) => {
-  res.json(await dbGet('projects') || []);
-});
-app.post('/api/projects', requireAuth, async (req, res) => {
-  const projects = req.body.projects || [];
-  await dbSet('projects', projects);
-  res.json({ ok: true, count: projects.length });
-});
-
-// ── COMPLETION LOG ─────────────────────────────────────────
-/*
-  LEARNING NOTE — Completion history
-  This is a persistent record of every task ever completed,
-  including recurring ones. It's what lets Claude answer
-  "when did I last change the smoke detector batteries?"
-  even after that task has cycled off the active list.
-*/
-app.get('/api/completion-log', requireAuth, async (req, res) => {
-  res.json(await dbGet('completion_log') || []);
-});
-app.post('/api/completion-log', requireAuth, async (req, res) => {
-  const log = req.body.log || [];
-  // Keep last 500 entries to avoid unbounded growth
-  await dbSet('completion_log', log.slice(-500));
-  res.json({ ok: true });
-});
-
-
-// ── JOB 4: WEEKLY SUGGESTIONS ──────────────────────────────
-/*
-  LEARNING NOTE — Proactive Claude suggestions
-  This job runs once a week and asks Claude to look at
-  your tasks, completion history, and context to suggest
-  tasks you might be missing — recurring maintenance,
-  seasonal items, things overdue based on history, etc.
-
-  Claude reasons about patterns in your completion log
-  to surface useful suggestions you haven't thought of.
-*/
-function scheduleWeeklySuggestions() {
-  const schedule = process.env.WEEKLY_SUGGESTIONS_CRON || '0 8 * * 1'; // Monday 8am
-  console.log(`[SCHEDULER] Weekly suggestions: ${schedule}`);
-
-  cron.schedule(schedule, async () => {
-    console.log('[JOB] Running weekly suggestions...');
-    try {
-      const tasks         = await dbGet('tasks') || [];
-      const completionLog = await dbGet('completion_log') || [];
-      const goals         = await dbGet('goals') || [];
-
-      const openTasks = tasks.filter(t => !t.done).map(t =>
-        `- [${t.priority}] ${t.title}${t.recurrence ? ` [${t.recurrence}]` : ''}${t.dueDate ? `, due ${t.dueDate}` : ''}`
-      ).join('\n') || 'None';
-
-      // Give Claude the last 6 months of completions
-      const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      const recentHistory = completionLog
-        .filter(l => new Date(l.completedAt) > sixMonthsAgo)
-        .map(l => `- "${l.taskTitle}" on ${new Date(l.completedAt).toLocaleDateString()}`)
-        .join('\n') || 'No recent history.';
-
-      const goalList = goals.filter(g => !g.achieved).map(g => `- ${g.title}`).join('\n') || 'None';
-
-      const today = new Date();
-      const systemPrompt = `You are a proactive personal assistant writing a weekly task suggestions email.
-Format your response as HTML using <p>, <ul>, <li>, <strong> tags.
-Keep suggestions practical and specific. Today is ${today.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}.
-Consider: seasonal tasks, maintenance schedules (HVAC filters, smoke detectors, car service, etc.),
-tasks overdue based on completion history, and any patterns you notice.`;
-
-      const userMessage = `Here is the user's current context. Suggest 3-5 tasks they might be missing or forgetting.
-
-Current open tasks:
-${openTasks}
-
-Long-term goals:
-${goalList}
-
-Recent completion history (last 6 months):
-${recentHistory}
-
-Suggest tasks they should consider adding. Be specific — if you suggest checking a smoke detector, say how often that should happen. If you notice something from their history hasn't recurred when it should have, flag it.`;
-
-      const suggestions = await callClaude(systemPrompt, userMessage, 600);
-
-      await sendEmail(
-        `💡 Weekly Task Suggestions — ${today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' })}`,
-        emailTemplate('Tasks You Might Be Missing', suggestions, '#5a3e8c')
-      );
-    } catch (err) {
-      console.error('[JOB ERROR] Weekly suggestions:', err.message);
-    }
-  }, { timezone: process.env.TZ || 'America/New_York' });
-}
 
 // ══════════════════════════════════════════════════════════
 //  GOOGLE HOME ROUTINES WEBHOOKS
