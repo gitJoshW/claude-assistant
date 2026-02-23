@@ -610,12 +610,16 @@ function nextRecurrenceDate(recurrence, fromDate) {
   return d.toISOString().slice(0,10);
 }
 
-function setDueDate(id, val)      { const t=tasks.find(t=>t.id===id); if(t){t.dueDate=val||null; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setCustomer(id, val)     { const t=tasks.find(t=>t.id===id); if(t){t.customer=val.trim()||null; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setTaskProject(id, pid)  { const t=tasks.find(t=>t.id===id); if(t){t.projectId=pid||null; t.projectName=pid?(projects.find(p=>String(p.id)===pid)?.name||''):''; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function deleteTask(id)           { tasks=tasks.filter(t=>t.id!==id); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
-function clearDone()              { tasks=tasks.filter(t=>!t.done); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
-function resetAll()               { if(!confirm('Delete all tasks?')) return; tasks=[]; apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
+function setDueDate(id, val)       { const t=tasks.find(t=>t.id===id); if(t){t.dueDate=val||null; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
+function setCustomer(id, val)      { const t=tasks.find(t=>t.id===id); if(t){t.customer=val.trim()||null; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
+function setTaskProject(id, pid)   { const t=tasks.find(t=>t.id===id); if(t){t.projectId=pid||null; t.projectName=pid?(projects.find(p=>String(p.id)===pid)?.name||''):''; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
+function setTaskPriority(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.priority=val; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
+function setTaskCategory(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.category=val.trim()||'General'; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
+function setTaskReason(id, val)    { const t=tasks.find(t=>t.id===id); if(t){t.reason=val.trim(); apiFetch('POST','/api/tasks',{tasks});} }
+function setGoalDesc(id, val)      { const g=goals.find(g=>g.id===id); if(g){g.description=val.trim(); apiFetch('POST','/api/goals',{goals});} }
+function deleteTask(id)            { tasks=tasks.filter(t=>t.id!==id); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
+function clearDone()               { tasks=tasks.filter(t=>!t.done); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
+function resetAll()                { if(!confirm('Delete all tasks?')) return; tasks=[]; apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
 
 // ════════════════════════════════════════════════════════════
 //  PROJECTS
@@ -896,20 +900,28 @@ function taskCard(t) {
   const dueBadge = ds
     ? `<span class="due-date ${ds.cls}" onclick="document.getElementById('de-${t.id}').showPicker()">📅 ${ds.label}</span>`
     : `<span class="due-date" onclick="document.getElementById('de-${t.id}').showPicker()">+ due date</span>`;
-  const lastDone = t.recurrence ? lastDoneFor(t.title) : null;
+  const lastDone  = t.recurrence ? lastDoneFor(t.title) : null;
   const projOptions = projects.filter(p=>!p.archived).map(p=>
     `<option value="${p.id}" ${String(t.projectId)===String(p.id)?'selected':''}>${esc(p.name)}</option>`
   ).join('');
+  const editStyle = `font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:border-color .15s`;
 
-  return `<div class="task-card priority-${t.priority} ${t.done?'done':''}" style="position:relative">
+  return `<div class="task-card priority-${t.priority} ${t.done?'done':''}" style="position:relative" id="tc-${t.id}">
     <div class="task-check" onclick="toggleTask(${t.id})">
       <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3 5.5L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <div class="task-body">
       <div class="task-title">${esc(t.title)}</div>
       <div class="task-meta">
-        <span class="badge badge-${t.priority}">${t.priority}</span>
-        <span class="badge badge-cat">${esc(t.category)}</span>
+        <select style="${editStyle}" onchange="setTaskPriority(${t.id},this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'">
+          <option value="high"   ${t.priority==='high'  ?'selected':''}>🔴 high</option>
+          <option value="medium" ${t.priority==='medium'?'selected':''}>🟡 medium</option>
+          <option value="low"    ${t.priority==='low'   ?'selected':''}>🔵 low</option>
+        </select>
+        <input style="${editStyle};width:100px" value="${esc(t.category)}" placeholder="category"
+          onblur="setTaskCategory(${t.id},this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()"
+          onfocus="this.style.borderColor='var(--accent2)'" />
         ${t.recurrence?`<span class="badge badge-recur">🔁 ${t.recurrence}</span>`:''}
         ${t.projectName?`<span class="badge badge-project" onclick="setFilter('proj:${t.projectId}')">📁 ${esc(t.projectName)}</span>`:''}
         ${dueBadge}
@@ -919,10 +931,17 @@ function taskCard(t) {
         <input class="customer-edit" placeholder="+ customer" value="${esc(t.customer||'')}"
           onblur="setCustomer(${t.id},this.value)"
           onkeydown="if(event.key==='Enter')this.blur()" />
-        ${projects.length?`<select style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer" onchange="setTaskProject(${t.id},this.value)">
+        ${projects.length?`<select style="${editStyle}" onchange="setTaskProject(${t.id},this.value)">
           <option value="">no project</option>${projOptions}</select>`:''}
       </div>
-      ${t.reason?`<div class="task-reason">${esc(t.reason)}</div>`:''}
+      <div style="margin-top:.35rem">
+        <textarea style="font-size:.7rem;font-style:italic;min-height:0;height:auto;line-height:1.5;padding:.2rem .4rem;resize:none;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--text-muted);width:100%;transition:border-color .15s,background .15s"
+          rows="1"
+          placeholder="+ add a note or description…"
+          onblur="setTaskReason(${t.id},this.value)"
+          onfocus="this.style.borderColor='var(--accent2)';this.style.background='var(--surface2)'"
+          oninput="this.rows=Math.max(1,this.value.split('\\n').length)">${esc(t.reason||'')}</textarea>
+      </div>
       ${lastDone?`<div class="last-done">Last completed: ${lastDone}</div>`:''}
     </div>
     <div class="task-actions">
@@ -975,7 +994,7 @@ function renderGoals() {
           <button class="task-action-btn del" onclick="deleteGoal(${g.id})">delete</button>
         </div>
       </div>
-      ${g.description?`<div class="goal-desc">${esc(g.description)}</div>`:''}
+      <textarea style="font-size:.78rem;line-height:1.6;color:var(--text-dim);width:100%;min-height:0;padding:.25rem .4rem;resize:none;background:transparent;border:1px solid transparent;border-radius:4px;margin-bottom:.35rem;font-family:'Instrument Sans',sans-serif;transition:border-color .15s,background .15s" rows="2" placeholder="Add a description — why it matters, what done looks like…" onblur="setGoalDesc(${g.id},this.value)" onfocus="this.style.borderColor='var(--accent2)';this.style.background='var(--surface2)'">${esc(g.description||'')}</textarea>
       ${pct!==null?`<div class="goal-progress-row"><div class="goal-bar"><div class="goal-bar-fill" style="width:${pct}%"></div></div><span class="goal-pct">${pct}%</span></div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.4rem"><strong style="color:var(--text-dim)">$${g.saved.toLocaleString()}</strong> saved of <strong style="color:var(--text-dim)">$${g.target.toLocaleString()}</strong> · $${Math.max(0,g.target-g.saved).toLocaleString()} to go</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem;margin-bottom:.25rem">
