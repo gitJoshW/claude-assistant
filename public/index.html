@@ -640,13 +640,19 @@ async function triggerMorningBriefing() {
   btn.disabled = true;
   btn.textContent = 'Sending...';
   try {
-    // Push latest tasks before triggering
     await pushTasks();
     const res = await apiFetch('POST', '/api/trigger/morning');
-    document.getElementById('trigger-result').textContent = res.message;
+    const msg = res.message || 'Triggered.';
+    document.getElementById('trigger-result').textContent = msg;
+    // Sync result to mobile drawer if it exists
+    const mobileResult = document.getElementById('trigger-result-mobile');
+    if (mobileResult) mobileResult.textContent = msg;
     setTimeout(loadNotificationLog, 5000);
   } catch(e) {
-    document.getElementById('trigger-result').textContent = 'Error: ' + e.message;
+    const msg = 'Error: ' + e.message;
+    document.getElementById('trigger-result').textContent = msg;
+    const mobileResult = document.getElementById('trigger-result-mobile');
+    if (mobileResult) mobileResult.textContent = msg;
   }
   btn.disabled = false;
   btn.textContent = 'Send Morning Briefing Now';
@@ -1049,13 +1055,6 @@ function syncNotifLogMobile() {
   if (desktop && mobile) mobile.innerHTML = desktop.innerHTML;
 }
 
-// Override triggerMorningBriefing result to also show in mobile drawer
-const _origTrigger = triggerMorningBriefing;
-async function triggerMorningBriefing() {
-  await _origTrigger();
-  const result = document.getElementById('trigger-result').textContent;
-  document.getElementById('trigger-result-mobile').textContent = result;
-}
 
 document.addEventListener('keydown', e => {
   if ((e.metaKey||e.ctrlKey) && e.key==='Enter') {
