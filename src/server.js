@@ -472,6 +472,53 @@ app.post('/api/completion-log', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── MULTI-TURN CONVERSATION ENDPOINT ─────────────────────
+/*
+  LEARNING NOTE — Multi-turn vs single-turn
+  The regular /api/claude endpoint takes a single user message.
+  This endpoint takes a full messages array so the client can
+  maintain conversation history for back-and-forth task help.
+*/
+app.post('/api/claude-convo', requireAuth, async (req, res) => {
+  const { systemPrompt, messages } = req.body;
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array required' });
+  }
+
+  const memory = await dbGet('memory') || '';
+  const fullSystem = memory
+    ? `${systemPrompt}\n\nAbout the user:\n${memory}`
+    : systemPrompt;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 512,
+        system: fullSystem,
+        messages: messages.slice(-20) // Keep last 20 turns to avoid token overflow
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Claude API error');
+    }
+
+    const data = await response.json();
+    res.json({ response: data.content[0].text });
+  } catch (err) {
+    console.error('[CONVO ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── NOTES ──────────────────────────────────────────────────
 app.get('/api/notes', requireAuth, async (req, res) => {
   res.json(await dbGet('notes') || []);
