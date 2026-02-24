@@ -1,4 +1,5 @@
-const CACHE = 'assistant-v1';
+// ── Bump CACHE version on every deploy to force client refresh ──
+const CACHE = 'assistant-v4';
 const PRECACHE = ['/'];
 
 self.addEventListener('install', e => {
@@ -7,15 +8,21 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-  ));
-  self.clients.claim();
+  // Delete all old cache versions so clients always get fresh files
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE).map(k => {
+          console.log('[SW] Removing old cache:', k);
+          return caches.delete(k);
+        })
+      ))
+      .then(() => self.clients.claim())
+  );
 });
 
-// Network first, fall back to cache
+// Network first, fall back to cache — never serve stale API responses
 self.addEventListener('fetch', e => {
-  // Only cache GET requests for the app shell
   if (e.request.method !== 'GET') return;
   if (e.request.url.includes('/api/')) return;
 

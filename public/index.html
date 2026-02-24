@@ -207,6 +207,21 @@
     .drawer-handle{width:36px;height:4px;border-radius:2px;background:var(--border2);margin:0 auto 1.25rem}
     .drawer-section{font-size:.72rem;font-weight:500;color:var(--text-dim);letter-spacing:.04em;margin-bottom:.85rem;margin-top:.85rem}
     .drawer-section:first-of-type{margin-top:0}
+  
+    /* TASK HELP PANEL */
+    .task-help-panel{margin-top:.65rem;border-top:1px solid var(--border);padding-top:.65rem;display:none}
+    .task-help-panel.open{display:block}
+    .help-messages{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.6rem;max-height:300px;overflow-y:auto}
+    .help-msg{padding:.5rem .7rem;border-radius:8px;font-size:.78rem;line-height:1.6;white-space:pre-wrap}
+    .help-msg.assistant{background:var(--accent-light);color:var(--text);border:1px solid rgba(74,124,40,.15)}
+    .help-msg.user{background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);align-self:flex-end;max-width:85%}
+    .help-msg.thinking{color:var(--text-muted);font-style:italic;font-size:.74rem}
+    .help-input-row{display:flex;gap:.4rem;align-items:center}
+    .help-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:.78rem;padding:.4rem .65rem;outline:none;transition:border-color .2s;min-height:unset}
+    .help-input:focus{border-color:var(--accent2)}
+    .help-send-btn{background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:.72rem;font-weight:500;padding:.4rem .75rem;white-space:nowrap;box-shadow:none;transition:background .15s}
+    .help-send-btn:hover{background:var(--accent2)}
+    .help-send-btn:disabled{background:var(--border2);color:var(--text-muted);cursor:not-allowed}
   </style>
 </head>
 <body>
@@ -475,6 +490,8 @@ let activeFilter  = 'all';
 let activeTab     = 'tasks';
 let condensed     = localStorage.getItem('condensed') === 'true';
 let notifLog      = [];
+let _idCounter    = Date.now();
+function newId()  { return ++_idCounter; }  // Clean integer IDs, no floats
 
 // ════════════════════════════════════════════════════════════
 //  INIT & SERVER
@@ -555,6 +572,41 @@ async function syncNow() {
 
 function renderAll() { renderTasks(); renderProjects(); renderGoals(); renderNotes(); renderNotifs(notifLog); refreshProjectDropdown(); }
 
+// ── DEBOUNCED SAVE ────────────────────────────────────────────
+// Batches rapid edits (typing in fields) into a single API call
+// after 800ms of inactivity. Shows a "Saving…" indicator.
+let _saveTasksTimer = null;
+let _saveGoalsTimer = null;
+
+function scheduleSaveTasks() {
+  setSyncStatus('syncing', 'Saving…');
+  clearTimeout(_saveTasksTimer);
+  _saveTasksTimer = setTimeout(async () => {
+    try {
+      await apiFetch('POST', '/api/tasks', { tasks });
+      setSyncStatus('ok', 'Saved');
+      setTimeout(() => setSyncStatus('ok', 'Synced'), 1500);
+    } catch(e) {
+      setSyncStatus('error', 'Save failed');
+      console.error('Save error:', e);
+    }
+  }, 800);
+}
+
+function scheduleSaveGoals() {
+  setSyncStatus('syncing', 'Saving…');
+  clearTimeout(_saveGoalsTimer);
+  _saveGoalsTimer = setTimeout(async () => {
+    try {
+      await apiFetch('POST', '/api/goals', { goals });
+      setSyncStatus('ok', 'Saved');
+      setTimeout(() => setSyncStatus('ok', 'Synced'), 1500);
+    } catch(e) {
+      setSyncStatus('error', 'Save failed');
+    }
+  }, 800);
+}
+
 async function apiFetch(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json', 'x-api-secret': secret } };
   if (body) opts.body = JSON.stringify(body);
@@ -600,7 +652,7 @@ For recurring tasks described in the text (e.g. "weekly", "every 6 months"), set
     if (clean.endsWith('```'))   clean = clean.slice(0, clean.lastIndexOf('```')).trim();
     const parsed = JSON.parse(clean);
     parsed.forEach(t => tasks.push({
-      id: Date.now() + Math.random(),
+      id: newId(),
       title: t.title, priority: t.priority, category: t.category,
       reason: t.reason, customer: t.customer || null,
       dueDate: dueVal || t.dueDate || null,
@@ -626,7 +678,7 @@ function addManual() {
   const pid   = document.getElementById('project-select').value || null;
   const pname = pid ? (projects.find(p => String(p.id) === pid)?.name || '') : '';
   input.split('\n').filter(l => l.trim()).forEach(line => {
-    tasks.push({ id: Date.now()+Math.random(), title: line.trim(), priority: 'medium', category: 'General', reason: '', customer: null, dueDate: due, projectId: pid, projectName: pname, recurrence: recur, done: false, createdAt: new Date().toISOString() });
+    tasks.push({ id: newId(), title: line.trim(), priority: 'medium', category: 'General', reason: '', customer: null, dueDate: due, projectId: pid, projectName: pname, recurrence: recur, done: false, createdAt: new Date().toISOString() });
   });
   document.getElementById('task-input').value = '';
   document.getElementById('due-date-input').value = '';
@@ -646,7 +698,7 @@ async function toggleTask(id) {
     // If recurring, add next occurrence
     if (t.recurrence) {
       const next = nextRecurrenceDate(t.recurrence, t.dueDate);
-      tasks.push({ ...t, id: Date.now()+Math.random(), done: false, dueDate: next, createdAt: new Date().toISOString() });
+      tasks.push({ ...t, id: newId(), done: false, dueDate: next, createdAt: new Date().toISOString() });
     }
     t.done = true;
   } else {
@@ -671,13 +723,13 @@ function nextRecurrenceDate(recurrence, fromDate) {
   return d.toISOString().slice(0,10);
 }
 
-function setDueDate(id, val)       { const t=tasks.find(t=>t.id===id); if(t){t.dueDate=val||null; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setCustomer(id, val)      { const t=tasks.find(t=>t.id===id); if(t){t.customer=val.trim()||null; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setTaskProject(id, pid)   { const t=tasks.find(t=>t.id===id); if(t){t.projectId=pid||null; t.projectName=pid?(projects.find(p=>String(p.id)===pid)?.name||''):''; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setTaskPriority(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.priority=val; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setTaskCategory(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.category=val.trim()||'General'; apiFetch('POST','/api/tasks',{tasks}); renderTasks();} }
-function setTaskReason(id, val)    { const t=tasks.find(t=>t.id===id); if(t){t.reason=val.trim(); apiFetch('POST','/api/tasks',{tasks});} }
-function setGoalDesc(id, val)      { const g=goals.find(g=>g.id===id); if(g){g.description=val.trim(); apiFetch('POST','/api/goals',{goals});} }
+function setDueDate(id, val)       { const t=tasks.find(t=>t.id===id); if(t){t.dueDate=val||null; scheduleSaveTasks(); renderTasks();} }
+function setCustomer(id, val)      { const t=tasks.find(t=>t.id===id); if(t){t.customer=val.trim()||null; scheduleSaveTasks(); renderTasks();} }
+function setTaskProject(id, pid)   { const t=tasks.find(t=>t.id===id); if(t){t.projectId=pid||null; t.projectName=pid?(projects.find(p=>String(p.id)===pid)?.name||''):''; scheduleSaveTasks(); renderTasks();} }
+function setTaskPriority(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.priority=val; scheduleSaveTasks(); renderTasks();} }
+function setTaskCategory(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.category=val.trim()||'General'; scheduleSaveTasks(); renderTasks();} }
+function setTaskReason(id, val)    { const t=tasks.find(t=>t.id===id); if(t){t.reason=val.trim(); scheduleSaveTasks();} }
+function setGoalDesc(id, val)      { const g=goals.find(g=>g.id===id); if(g){g.description=val.trim(); scheduleSaveGoals();} }
 function deleteTask(id)            { tasks=tasks.filter(t=>t.id!==id); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
 function clearDone()               { tasks=tasks.filter(t=>!t.done); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
 function resetAll()                { if(!confirm('Delete all tasks?')) return; tasks=[]; apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
@@ -688,7 +740,7 @@ function resetAll()                { if(!confirm('Delete all tasks?')) return; t
 async function addProject() {
   const name = document.getElementById('project-name-input').value.trim();
   if (!name) return;
-  projects.push({ id: Date.now()+Math.random(), name, description: document.getElementById('project-desc-input').value.trim(), createdAt: new Date().toISOString(), archived: false });
+  projects.push({ id: newId(), name, description: document.getElementById('project-desc-input').value.trim(), createdAt: new Date().toISOString(), archived: false });
   await apiFetch('POST', '/api/projects', { projects });
   document.getElementById('project-name-input').value = '';
   document.getElementById('project-desc-input').value = '';
@@ -724,14 +776,14 @@ function refreshProjectDropdown() {
 function addGoal() {
   const title = document.getElementById('goal-title-input').value.trim();
   if (!title) return;
-  goals.push({ id: Date.now()+Math.random(), title, description: document.getElementById('goal-desc-input').value.trim(), target: parseFloat(document.getElementById('goal-target-input').value)||null, saved: parseFloat(document.getElementById('goal-saved-input').value)||0, note: '', achieved: false, createdAt: new Date().toISOString() });
+  goals.push({ id: newId(), title, description: document.getElementById('goal-desc-input').value.trim(), target: parseFloat(document.getElementById('goal-target-input').value)||null, saved: parseFloat(document.getElementById('goal-saved-input').value)||0, note: '', achieved: false, createdAt: new Date().toISOString() });
   apiFetch('POST','/api/goals',{goals}); renderGoals();
   ['goal-title-input','goal-desc-input','goal-target-input','goal-saved-input'].forEach(id=>document.getElementById(id).value='');
 }
 function updateGoalProgress(id, field, val) {
   const g=goals.find(g=>g.id===id); if(!g) return;
   g[field] = field==='note' ? val : (parseFloat(val)||null);
-  apiFetch('POST','/api/goals',{goals});
+  scheduleSaveGoals();
   if(field!=='note') renderGoals();
 }
 function saveGoalNote(id) { const el=document.getElementById('gn-'+id); if(el) updateGoalProgress(id,'note',el.value); renderGoals(); }
@@ -1008,7 +1060,16 @@ function taskCard(t) {
       ${lastDone?`<div class="last-done">Last completed: ${lastDone}</div>`:''}
     </div>
     <div class="task-actions">
+      <button class="task-action-btn" onclick="toggleHelpPanel(${t.id}, event)">✦ Help me</button>
       <button class="task-action-btn del" onclick="deleteTask(${t.id})">delete</button>
+    </div>
+    <div class="task-help-panel" id="help-${t.id}">
+      <div class="help-messages" id="help-msgs-${t.id}"></div>
+      <div class="help-input-row">
+        <input class="help-input" id="help-input-${t.id}" placeholder="Reply to Claude…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendHelpMessage(${t.id})}" />
+        <button class="help-send-btn" id="help-send-${t.id}" onclick="sendHelpMessage(${t.id})">Send</button>
+      </div>
     </div>
   </div>`;
 }
@@ -1123,6 +1184,154 @@ document.addEventListener('keydown', e => {
   }
 });
 
+
+// ════════════════════════════════════════════════════════════
+//  TASK HELP CONVERSATIONS
+// ════════════════════════════════════════════════════════════
+// Each task can have its own conversation history
+const helpConversations = {};  // taskId -> [{role, content}]
+
+function toggleHelpPanel(taskId, event) {
+  event.stopPropagation();
+  const panel = document.getElementById('help-' + taskId);
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+
+  // Close all other open panels first
+  document.querySelectorAll('.task-help-panel.open').forEach(p => p.classList.remove('open'));
+
+  if (!isOpen) {
+    panel.classList.add('open');
+    // If no conversation yet, kick it off with Claude's opening message
+    if (!helpConversations[taskId] || helpConversations[taskId].length === 0) {
+      startHelpConversation(taskId);
+    }
+    // Focus the input
+    setTimeout(() => {
+      const inp = document.getElementById('help-input-' + taskId);
+      if (inp) inp.focus();
+    }, 50);
+  }
+}
+
+async function startHelpConversation(taskId) {
+  const t = tasks.find(t => t.id === taskId);
+  if (!t) return;
+
+  helpConversations[taskId] = [];
+  appendHelpMessage(taskId, 'thinking', 'Claude is thinking…');
+
+  const context = buildTaskContext(t);
+  const sys = buildHelpSystemPrompt(t);
+
+  try {
+    const opening = await apiFetch('POST', '/api/claude', {
+      systemPrompt: sys,
+      userMessage:  `I need help with this task: "${t.title}". ${t.reason ? 'Context: ' + t.reason : ''}
+
+Please start by asking me the most important question that would help you give me specific, useful guidance. Don't give generic advice — ask first so you can tailor your help.`
+    });
+
+    // Remove thinking message
+    const msgs = document.getElementById('help-msgs-' + taskId);
+    if (msgs) {
+      const thinking = msgs.querySelector('.thinking');
+      if (thinking) thinking.remove();
+    }
+
+    helpConversations[taskId].push({ role: 'user', content: `Help me with: "${t.title}"` });
+    helpConversations[taskId].push({ role: 'assistant', content: opening.response });
+    appendHelpMessage(taskId, 'assistant', opening.response);
+  } catch(e) {
+    replaceThinking(taskId, 'Error: ' + e.message);
+  }
+}
+
+async function sendHelpMessage(taskId) {
+  const input = document.getElementById('help-input-' + taskId);
+  const btn   = document.getElementById('help-send-' + taskId);
+  if (!input || !input.value.trim()) return;
+
+  const userMsg = input.value.trim();
+  input.value = '';
+  btn.disabled = true;
+
+  appendHelpMessage(taskId, 'user', userMsg);
+  appendHelpMessage(taskId, 'thinking', 'Claude is thinking…');
+
+  const t   = tasks.find(t => t.id === taskId);
+  const sys = buildHelpSystemPrompt(t);
+
+  // Build full conversation history for context
+  const history = [...(helpConversations[taskId] || [])];
+  history.push({ role: 'user', content: userMsg });
+
+  try {
+    const data = await apiFetch('POST', '/api/claude-convo', {
+      systemPrompt: sys,
+      messages:     history
+    });
+
+    replaceThinking(taskId, data.response);
+    helpConversations[taskId] = history;
+    helpConversations[taskId].push({ role: 'assistant', content: data.response });
+  } catch(e) {
+    replaceThinking(taskId, 'Error: ' + e.message);
+  }
+
+  btn.disabled = false;
+  input.focus();
+}
+
+function buildHelpSystemPrompt(t) {
+  const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  const goalCtx = goals.filter(g=>!g.achieved).map(g=>g.title).join(', ') || 'none';
+  return `You are a proactive personal assistant helping the user make concrete progress on a specific task.
+Today is ${today}.
+
+Task: "${t ? t.title : ''}"
+Priority: ${t ? t.priority : ''}
+Category: ${t ? t.category : ''}
+${t && t.dueDate ? 'Due: ' + t.dueDate : ''}
+${t && t.customer ? 'Customer/person involved: ' + t.customer : ''}
+${t && t.reason ? 'Notes: ' + t.reason : ''}
+
+User's broader goals: ${goalCtx}
+
+Your job is to actively help them make progress — not just give generic advice.
+Ask specific questions to understand their situation, then give concrete actionable next steps.
+Keep responses concise (2-4 sentences or a short list). Be direct and practical.
+If they give you information, use it to give more specific help.
+Suggest specific resources, tools, or exact steps when you can.`;
+}
+
+function buildTaskContext(t) {
+  return `Task: ${t.title}, Priority: ${t.priority}, Category: ${t.category}${t.dueDate ? ', Due: ' + t.dueDate : ''}`;
+}
+
+function appendHelpMessage(taskId, role, text) {
+  const msgs = document.getElementById('help-msgs-' + taskId);
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = 'help-msg ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function replaceThinking(taskId, text) {
+  const msgs = document.getElementById('help-msgs-' + taskId);
+  if (!msgs) return;
+  const thinking = msgs.querySelector('.thinking');
+  if (thinking) {
+    thinking.className = 'help-msg assistant';
+    thinking.textContent = text;
+  } else {
+    appendHelpMessage(taskId, 'assistant', text);
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
 // ════════════════════════════════════════════════════════════
 //  NOTES
 // ════════════════════════════════════════════════════════════
@@ -1188,7 +1397,7 @@ async function confirmParsed() {
   const checkedTasks = (r.tasks||[]).filter((_,i) => document.getElementById('pt-'+i)?.checked);
   if (checkedTasks.length) {
     checkedTasks.forEach(t => tasks.push({
-      id: Date.now()+Math.random(), title: t.title,
+      id: newId(), title: t.title,
       priority: t.priority||'medium', category: t.category||'General',
       reason: '', customer: t.customer||null, dueDate: t.dueDate||null,
       projectId: null, projectName: '', recurrence: null,
@@ -1215,7 +1424,7 @@ async function confirmParsed() {
 
   // Save the note itself
   const noteToSave = {
-    id: Date.now()+Math.random(),
+    id: newId(),
     text: pendingParsed.text,
     summary: r.summary || '',
     tasksExtracted: checkedTasks.length,
@@ -1238,7 +1447,7 @@ async function confirmParsed() {
 async function saveNoteRaw() {
   const text = document.getElementById('notes-input').value.trim();
   if (!text) return;
-  notes.push({ id: Date.now()+Math.random(), text, summary: '', tasksExtracted: 0, logsExtracted: 0, ideasExtracted: 0, ideas: [], createdAt: new Date().toISOString() });
+  notes.push({ id: newId(), text, summary: '', tasksExtracted: 0, logsExtracted: 0, ideasExtracted: 0, ideas: [], createdAt: new Date().toISOString() });
   await apiFetch('POST', '/api/notes', { notes });
   document.getElementById('notes-input').value = '';
   renderNotes();
