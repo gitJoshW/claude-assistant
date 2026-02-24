@@ -152,6 +152,16 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 1024) {
   return data.content[0].text;
 }
 
+// ── JSON PARSE HELPER ─────────────────────────────────────
+// Strips markdown code fences before parsing — Claude sometimes
+// wraps JSON responses in ```json ... ``` even when told not to.
+function parseJSON(raw) {
+  let s = raw.trim();
+  if (s.startsWith('```')) s = s.slice(s.indexOf('\n') + 1);
+  if (s.endsWith('```'))   s = s.slice(0, s.lastIndexOf('```')).trim();
+  return JSON.parse(s);
+}
+
 // ── EMAIL ──────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -287,7 +297,7 @@ Return ONLY valid JSON: {"shouldNotify": boolean, "subject": "string", "message"
 
       const raw      = await callClaude(systemPrompt,
         `These tasks are due soon or overdue:\n${taskList}\n\nShould I interrupt the user? Only yes if something is truly urgent.`, 256);
-      const decision = JSON.parse(raw);
+      const decision = parseJSON(raw);
 
       console.log(`[JOB] Claude decision — shouldNotify: ${decision.shouldNotify}`);
       if (decision.shouldNotify) {
@@ -332,7 +342,7 @@ Be encouraging, not nagging. Vary your tone.`;
 
       const raw      = await callClaude(systemPrompt,
         `It's ${timeContext}. Tasks:\n${taskList}\n\nSend a brief focus nudge?`, 200);
-      const decision = JSON.parse(raw);
+      const decision = parseJSON(raw);
 
       if (decision.shouldSend) {
         const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -486,9 +496,17 @@ Today is ${today}. Analyze the text and return:
 }
 tasks: things that need doing. logEntries: things that happened (e.g. changed batteries, finished project). ideas: thoughts not yet actionable. Empty arrays if none.`;
   try {
-    const raw = await callClaude(systemPrompt, text, 600);
-    const parsed = JSON.parse(raw);
-    res.json(parsed);
+    const raw    = await callClaude(systemPrompt, text, 600);
+    // Strip markdown code fences — handle newlines too
+    const clean  = raw.replace(/^```[\w]*\s*/s, '').replace(/\s*```\s*$/s, '').trim();
+    const parsed = JSON.parse(clean);
+    // Ensure all expected keys exist so the frontend never breaks
+    res.json({
+      tasks:      Array.isArray(parsed.tasks)      ? parsed.tasks      : [],
+      logEntries: Array.isArray(parsed.logEntries) ? parsed.logEntries : [],
+      ideas:      Array.isArray(parsed.ideas)      ? parsed.ideas      : [],
+      summary:    typeof parsed.summary === 'string' ? parsed.summary  : ''
+    });
   } catch (err) {
     console.error('[NOTES PARSE ERROR]', err.message);
     res.status(500).json({ error: err.message });
@@ -669,7 +687,7 @@ Speak naturally as if talking to someone. Today is ${new Date().toLocaleDateStri
 Format: {"title": "string", "priority": "high"|"medium"|"low", "category": "string", "reason": "string"}`;
 
     const raw    = await callClaude(systemPrompt, `Categorize this task: "${extra}"`, 200);
-    const parsed = JSON.parse(raw);
+    const parsed = parseJSON(raw);
 
     const updated = [...tasks, {
       id:        Date.now() + Math.random(),

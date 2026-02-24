@@ -480,7 +480,7 @@ let notifLog      = [];
 //  INIT & SERVER
 // ════════════════════════════════════════════════════════════
 // ── CONFIG: Set your server URL here so mobile users don't have to type it ──
-const DEFAULT_SERVER_URL = 'https://claude-assistant.onrender.com/';  // e.g. 'https://claude-assistant.onrender.com'
+const DEFAULT_SERVER_URL = '';  // e.g. 'https://claude-assistant.onrender.com'
 
 async function init() {
   serverUrl = localStorage.getItem('p3_url') || '';
@@ -595,7 +595,10 @@ For recurring tasks described in the text (e.g. "weekly", "every 6 months"), set
 
   try {
     const raw    = await callClaude(sys, 'Organize these tasks:\n' + input);
-    const parsed = JSON.parse(raw);
+    let clean = raw.trim();
+    if (clean.startsWith('```')) clean = clean.slice(clean.indexOf('\n')+1);
+    if (clean.endsWith('```'))   clean = clean.slice(0, clean.lastIndexOf('```')).trim();
+    const parsed = JSON.parse(clean);
     parsed.forEach(t => tasks.push({
       id: Date.now() + Math.random(),
       title: t.title, priority: t.priority, category: t.category,
