@@ -109,12 +109,16 @@ async function dbSet(key, value) {
 }
 
 // ── AUTH MIDDLEWARE ────────────────────────────────────────
+// Accepts either the full API_SECRET (schedulers/webhooks)
+// or the shorter API_PIN (mobile app UI)
 function requireAuth(req, res, next) {
-  const secret = req.headers['x-api-secret'];
-  if (!secret || secret !== process.env.API_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
+  const provided = req.headers['x-api-secret'];
+  const validSecret = process.env.API_SECRET;
+  const validPin    = process.env.API_PIN;
+  if (!provided) return res.status(401).json({ error: 'Unauthorized' });
+  if (provided === validSecret) return next();
+  if (validPin && provided === validPin) return next();
+  return res.status(401).json({ error: 'Unauthorized' });
 }
 
 // ── CLAUDE API CALL ────────────────────────────────────────

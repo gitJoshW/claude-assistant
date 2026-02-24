@@ -214,14 +214,14 @@
 <!-- SETUP MODAL -->
 <div class="modal-overlay" id="setup-modal">
   <div class="modal">
-    <h2>Connect to your server</h2>
-    <p>Enter your Render server URL and the API secret from your environment variables.</p>
+    <h2>Connect to your assistant</h2>
+    <p>Enter your server URL and PIN. Set both in your Render environment variables.</p>
     <label>Server URL</label>
-    <input type="text" id="server-url-input" placeholder="https://claude-assistant.onrender.com" />
-    <label>API Secret</label>
-    <input type="password" id="server-secret-input" placeholder="your-random-secret" />
+    <input type="text" id="server-url-input" placeholder="https://claude-assistant.onrender.com" autocomplete="off" autocapitalize="none" />
+    <label>PIN <span style="font-weight:400;color:var(--text-muted)">(set API_PIN in Render env vars)</span></label>
+    <input type="password" id="server-secret-input" placeholder="e.g. 7291" inputmode="numeric" autocomplete="current-password" />
     <div class="modal-error" id="modal-error" style="display:none"></div>
-    <button onclick="connectServer()" style="width:100%;margin-top:1rem">Connect &amp; Sync</button>
+    <button onclick="connectServer()" style="width:100%;margin-top:1rem">Connect</button>
   </div>
 </div>
 
