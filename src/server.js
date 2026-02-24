@@ -71,7 +71,8 @@ async function initDb() {
       ('memory',           '""'),
       ('notification_log', '[]'),
       ('projects',         '[]'),
-      ('completion_log',   '[]')
+      ('completion_log',   '[]'),
+      ('notes',            '[]')
     ON CONFLICT (key) DO NOTHING;
   `);
 
@@ -171,9 +172,9 @@ async function sendEmail(subject, htmlBody) {
 
   console.log(`[EMAIL SENT] ${subject}`);
 
-  // Persist notification log to DB so it survives redeploys
+  // Persist notification log with full content so app can display it
   const log = await dbGet('notification_log') || [];
-  log.push({ type: subject, sentAt: new Date().toISOString() });
+  log.push({ type: subject, sentAt: new Date().toISOString(), html: htmlBody });
   await dbSet('notification_log', log.slice(-50));
 }
 
@@ -457,6 +458,38 @@ app.post('/api/completion-log', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── NOTES ──────────────────────────────────────────────────
+app.get('/api/notes', requireAuth, async (req, res) => {
+  res.json(await dbGet('notes') || []);
+});
+app.post('/api/notes', requireAuth, async (req, res) => {
+  const notes = req.body.notes || [];
+  await dbSet('notes', notes.slice(-500));
+  res.json({ ok: true });
+});
+
+app.post('/api/notes/parse', requireAuth, async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'No text provided' });
+  const today = new Date().toISOString().slice(0, 10);
+  const systemPrompt = `You are a personal assistant parsing freeform notes. Return ONLY valid JSON, no markdown.
+Today is ${today}. Analyze the text and return:
+{
+  "tasks": [{"title":"string","priority":"high"|"medium"|"low","category":"string","dueDate":"YYYY-MM-DD|null","customer":"string|null"}],
+  "logEntries": [{"description":"string","date":"YYYY-MM-DD"}],
+  "ideas": ["string"],
+  "summary": "one sentence summary"
+}
+tasks: things that need doing. logEntries: things that happened (e.g. changed batteries, finished project). ideas: thoughts not yet actionable. Empty arrays if none.`;
+  try {
+    const raw = await callClaude(systemPrompt, text, 600);
+    const parsed = JSON.parse(raw);
+    res.json(parsed);
+  } catch (err) {
+    console.error('[NOTES PARSE ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── JOB 4: WEEKLY SUGGESTIONS ──────────────────────────────
 /*
