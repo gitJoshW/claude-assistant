@@ -72,7 +72,8 @@ async function initDb() {
       ('notification_log', '[]'),
       ('projects',         '[]'),
       ('completion_log',   '[]'),
-      ('notes',            '[]')
+      ('notes',            '[]'),
+      ('paused',           'false')
     ON CONFLICT (key) DO NOTHING;
   `);
 
@@ -222,6 +223,7 @@ function scheduleMorningBriefing() {
   console.log(`[SCHEDULER] Morning briefing: ${schedule}`);
 
   cron.schedule(schedule, async () => {
+    if (await dbGet('paused')) { console.log('[JOB] Skipped — paused'); return; }
     console.log('[JOB] Running morning briefing...');
     try {
       const tasks     = await dbGet('tasks') || [];
@@ -266,6 +268,7 @@ function scheduleDueCheck() {
   console.log(`[SCHEDULER] Due check: ${schedule}`);
 
   cron.schedule(schedule, async () => {
+    if (await dbGet('paused')) { console.log('[JOB] Skipped — paused'); return; }
     console.log('[JOB] Running due/overdue check...');
     try {
       const tasks = await dbGet('tasks') || [];
@@ -519,6 +522,25 @@ app.post('/api/claude-convo', requireAuth, async (req, res) => {
   }
 });
 
+// ── PAUSE ─────────────────────────────────────────────────
+app.get('/api/pause', requireAuth, async (req, res) => {
+  const paused = await dbGet('paused') || false;
+  res.json({ paused });
+});
+app.post('/api/pause', requireAuth, async (req, res) => {
+  const { paused } = req.body;
+  await dbSet('paused', !!paused);
+  console.log('[PAUSE] Notifications', paused ? 'PAUSED' : 'RESUMED');
+  res.json({ ok: true, paused: !!paused });
+});
+
+// ── NOTIFICATION SAVE (for inbox delete/clear) ─────────────
+app.post('/api/notifications/save', requireAuth, async (req, res) => {
+  const log = req.body.log || [];
+  await dbSet('notification_log', log);
+  res.json({ ok: true });
+});
+
 // ── NOTES ──────────────────────────────────────────────────
 app.get('/api/notes', requireAuth, async (req, res) => {
   res.json(await dbGet('notes') || []);
@@ -576,6 +598,7 @@ function scheduleWeeklySuggestions() {
   console.log(`[SCHEDULER] Weekly suggestions: ${schedule}`);
 
   cron.schedule(schedule, async () => {
+    if (await dbGet('paused')) { console.log('[JOB] Skipped — paused'); return; }
     console.log('[JOB] Running weekly suggestions...');
     try {
       const tasks         = await dbGet('tasks') || [];

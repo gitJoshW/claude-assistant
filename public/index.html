@@ -222,6 +222,21 @@
     .help-send-btn{background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:.72rem;font-weight:500;padding:.4rem .75rem;white-space:nowrap;box-shadow:none;transition:background .15s}
     .help-send-btn:hover{background:var(--accent2)}
     .help-send-btn:disabled{background:var(--border2);color:var(--text-muted);cursor:not-allowed}
+
+    /* NOTIFICATION PAUSE BANNER */
+    .pause-banner{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:.65rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;font-size:.78rem;color:#856404}
+    .pause-banner strong{font-weight:600}
+
+    /* SNOOZE BADGE */
+    .badge-snoozed{background:#f3e5f5;color:#6a1b9a}
+
+    /* TASK DETAIL EXPAND (condensed mode click-to-expand) */
+    .task-row{cursor:pointer}
+    .task-row-detail{display:none;padding:.5rem .75rem .6rem 2rem;font-size:.76rem;color:var(--text-dim);line-height:1.6;border-bottom:1px solid var(--border);animation:fadeUp .18s ease}
+    .task-row-detail.open{display:block}
+
+    /* MOBILE FILTER DRAWER */
+    #drawer-filter .fi{margin-bottom:.2rem}
   </style>
 </head>
 <body>
@@ -259,12 +274,21 @@
 
   <!-- LEFT SIDEBAR -->
   <div class="sidebar-left">
+    <div id="pause-banner" style="display:none" class="pause-banner">
+      <span>⏸ <strong>Notifications paused</strong></span>
+      <button class="btn-outline btn-sm" onclick="setPause(false)" style="font-size:.65rem;padding:.2rem .5rem;white-space:nowrap">Resume</button>
+    </div>
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Notifications</span>
+      <button id="pause-btn" class="btn-outline btn-sm" style="font-size:.65rem;padding:.15rem .45rem" onclick="togglePause()">⏸ Pause</button>
+    </div>
     <div class="section-label">Tasks</div>
     <div id="filter-all" class="fi active" onclick="setFilter('all')"><span>All</span><span class="fc" id="count-all">0</span></div>
     <div id="filter-open" class="fi" onclick="setFilter('open')"><span>Open</span><span class="fc" id="count-open">0</span></div>
     <div id="filter-done" class="fi" onclick="setFilter('done')"><span>Done</span><span class="fc" id="count-done">0</span></div>
     <div id="filter-due-soon" class="fi" onclick="setFilter('due-soon')"><span>⏰ Due soon</span><span class="fc" id="count-due-soon">0</span></div>
     <div id="filter-recurring" class="fi" onclick="setFilter('recurring')"><span>🔁 Recurring</span><span class="fc" id="count-recurring">0</span></div>
+    <div id="filter-snoozed" class="fi" onclick="setFilter('snoozed')"><span>💤 Snoozed</span><span class="fc" id="count-snoozed">0</span></div>
 
     <div class="section-label">Priority</div>
     <div id="filter-high" class="fi" onclick="setFilter('high')"><span>🔴 High</span><span class="fc" id="count-high">0</span></div>
@@ -396,6 +420,10 @@
 
     <!-- ── NOTIFICATIONS / INBOX VIEW ── -->
     <div id="view-notifs" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <span style="font-size:.72rem;color:var(--text-muted)">Notifications older than 30 days are removed automatically.</span>
+        <button class="btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:.68rem;color:var(--high);border-color:var(--high)">Clear all</button>
+      </div>
       <div id="notifs-list"></div>
     </div>
 
@@ -448,6 +476,10 @@
     <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
     Tasks
   </button>
+  <button class="mobile-nav-btn" id="mnav-filter" onclick="openDrawer('filter')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
+    Filter
+  </button>
   <button class="mobile-nav-btn" id="mnav-projects" onclick="mobileTab('projects')">
     <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
     Projects
@@ -467,6 +499,25 @@
 </nav>
 
 <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer-filter">
+  <div class="drawer-handle"></div>
+  <div class="drawer-section">Filter Tasks</div>
+  <div id="mobile-filter-all" class="fi active" onclick="setFilter('all');closeDrawer()"><span>All tasks</span><span class="fc" id="m-count-all">0</span></div>
+  <div id="mobile-filter-open" class="fi" onclick="setFilter('open');closeDrawer()"><span>Open</span><span class="fc" id="m-count-open">0</span></div>
+  <div id="mobile-filter-done" class="fi" onclick="setFilter('done');closeDrawer()"><span>Done</span></div>
+  <div id="mobile-filter-due-soon" class="fi" onclick="setFilter('due-soon');closeDrawer()"><span>⏰ Due soon</span></div>
+  <div id="mobile-filter-recurring" class="fi" onclick="setFilter('recurring');closeDrawer()"><span>🔁 Recurring</span></div>
+  <div id="mobile-filter-snoozed" class="fi" onclick="setFilter('snoozed');closeDrawer()"><span>💤 Snoozed</span></div>
+  <div class="drawer-section" style="margin-top:.75rem">Priority</div>
+  <div class="fi" onclick="setFilter('high');closeDrawer()">🔴 High</div>
+  <div class="fi" onclick="setFilter('medium');closeDrawer()">🟡 Medium</div>
+  <div class="fi" onclick="setFilter('low');closeDrawer()">🔵 Low</div>
+  <div class="drawer-section" style="margin-top:.75rem">Categories</div>
+  <div id="mobile-cat-list"></div>
+  <div class="drawer-section" style="margin-top:.75rem">Customers</div>
+  <div id="mobile-customer-list"></div>
+</div>
+
 <div class="drawer" id="drawer-ask">
   <div class="drawer-handle"></div>
   <div class="drawer-section">Ask Claude</div>
@@ -547,21 +598,26 @@ async function syncNow() {
   if (!serverUrl || !secret) return;
   setSyncStatus('syncing', 'Syncing...');
   try {
-    const [t, p, g, m, cl, nt, nl] = await Promise.all([
+    const [t, p, g, m, cl, nt, nl, ps] = await Promise.all([
       apiFetch('GET', '/api/tasks'),
       apiFetch('GET', '/api/projects').catch(() => []),
       apiFetch('GET', '/api/goals'),
       apiFetch('GET', '/api/memory'),
       apiFetch('GET', '/api/completion-log').catch(() => []),
       apiFetch('GET', '/api/notes').catch(() => []),
-      apiFetch('GET', '/api/notifications').catch(() => [])
+      apiFetch('GET', '/api/notifications').catch(() => []),
+      apiFetch('GET', '/api/pause').catch(() => ({ paused: false }))
     ]);
     tasks = t; projects = p || []; goals = g;
     memory = m.memory || '';
     completionLog = cl || [];
     notes = nt || [];
     notifLog = nl || [];
+    // Auto-expire notifs older than 30 days
+    const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    notifLog = notifLog.filter(n => new Date(n.sentAt) > thirtyDaysAgo);
     if (memory) document.getElementById('memory-text').value = memory;
+    updatePauseUI(ps?.paused || false);
     renderAll();
     setSyncStatus('ok', 'Synced');
   } catch(e) {
@@ -892,19 +948,23 @@ function setFilter(f) {
 function getFiltered() {
   const today=new Date(); today.setHours(0,0,0,0);
   const three=new Date(today); three.setDate(today.getDate()+3);
+  // By default, hide snoozed tasks from all views except 'snoozed'
+  const notSnoozed = t => !isCurrentlySnoozed(t);
   switch(activeFilter) {
-    case 'open':      return tasks.filter(t=>!t.done);
+    case 'open':      return tasks.filter(t=>!t.done && notSnoozed(t));
     case 'done':      return tasks.filter(t=>t.done);
-    case 'high':      return tasks.filter(t=>t.priority==='high');
-    case 'medium':    return tasks.filter(t=>t.priority==='medium');
-    case 'low':       return tasks.filter(t=>t.priority==='low');
-    case 'recurring': return tasks.filter(t=>t.recurrence);
-    case 'due-soon':  return tasks.filter(t=>!t.done&&t.dueDate&&new Date(t.dueDate+'T00:00:00')<=three);
+    case 'high':      return tasks.filter(t=>t.priority==='high' && notSnoozed(t));
+    case 'medium':    return tasks.filter(t=>t.priority==='medium' && notSnoozed(t));
+    case 'low':       return tasks.filter(t=>t.priority==='low' && notSnoozed(t));
+    case 'recurring': return tasks.filter(t=>t.recurrence && notSnoozed(t));
+    case 'due-soon':  return tasks.filter(t=>!t.done&&t.dueDate&&new Date(t.dueDate+'T00:00:00')<=three && notSnoozed(t));
+    case 'snoozed':   return tasks.filter(t=>isCurrentlySnoozed(t));
     default:
-      if (activeFilter.startsWith('cat:'))      return tasks.filter(t=>t.category===activeFilter.slice(4));
-      if (activeFilter.startsWith('customer:')) return tasks.filter(t=>t.customer===activeFilter.slice(9));
-      if (activeFilter.startsWith('proj:'))     return tasks.filter(t=>String(t.projectId)===activeFilter.slice(5));
-      return tasks;
+      if (activeFilter.startsWith('cat:'))      return tasks.filter(t=>t.category===activeFilter.slice(4) && notSnoozed(t));
+      if (activeFilter.startsWith('customer:')) return tasks.filter(t=>t.customer===activeFilter.slice(9) && notSnoozed(t));
+      if (activeFilter.startsWith('proj:'))     return tasks.filter(t=>String(t.projectId)===activeFilter.slice(5) && notSnoozed(t));
+      // 'all' — hide snoozed by default
+      return tasks.filter(notSnoozed);
   }
 }
 
@@ -950,14 +1010,26 @@ function renderTasks() {
   const three=new Date(today); three.setDate(today.getDate()+3);
 
   // Counts
+  const snoozedCount = tasks.filter(t=>isCurrentlySnoozed(t)).length;
   document.getElementById('count-all').textContent      = tasks.length;
-  document.getElementById('count-open').textContent     = tasks.filter(t=>!t.done).length;
+  document.getElementById('count-open').textContent     = tasks.filter(t=>!t.done&&!isCurrentlySnoozed(t)).length;
   document.getElementById('count-done').textContent     = tasks.filter(t=>t.done).length;
   document.getElementById('count-due-soon').textContent = tasks.filter(t=>!t.done&&t.dueDate&&new Date(t.dueDate+'T00:00:00')<=three).length;
   document.getElementById('count-recurring').textContent= tasks.filter(t=>t.recurrence).length;
+  document.getElementById('count-snoozed').textContent  = snoozedCount;
   document.getElementById('count-high').textContent     = tasks.filter(t=>t.priority==='high').length;
   document.getElementById('count-medium').textContent   = tasks.filter(t=>t.priority==='medium').length;
   document.getElementById('count-low').textContent      = tasks.filter(t=>t.priority==='low').length;
+  // Sync mobile filter counts
+  const mAll  = document.getElementById('m-count-all');  if(mAll)  mAll.textContent  = tasks.length;
+  const mOpen = document.getElementById('m-count-open'); if(mOpen) mOpen.textContent = tasks.filter(t=>!t.done&&!isCurrentlySnoozed(t)).length;
+  // Sync mobile category + customer lists
+  const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))].sort();
+  const mcl = document.getElementById('mobile-cat-list');
+  if(mcl) mcl.innerHTML = cats.map(c=>`<div class="fi" onclick="setFilter('cat:${esc(c)}');closeDrawer()">${esc(c)}</div>`).join('');
+  const customers=[...new Set(tasks.map(t=>t.customer).filter(Boolean))].sort();
+  const mcu = document.getElementById('mobile-customer-list');
+  if(mcu) mcu.innerHTML = customers.map(c=>`<div class="fi" onclick="setFilter('customer:${esc(c)}');closeDrawer()">👤 ${esc(c)}</div>`).join('') || '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
 
   // Category sidebar
   const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))].sort();
@@ -999,15 +1071,40 @@ function renderTasks() {
 }
 
 function taskRow(t) {
-  const ds=dueStat(t.dueDate);
-  return `<div class="task-row ${t.done?'done':''}">
-    <div class="check-sm" onclick="toggleTask(${t.id})">
-      <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  const ds = dueStat(t.dueDate);
+  const snoozed = isCurrentlySnoozed(t);
+  // Detail section shown when row is clicked
+  const detail = `
+    <div class="task-row-detail" id="trd-${t.id}">
+      ${t.category ? `<span class="badge badge-cat" style="margin-right:.35rem">${esc(t.category)}</span>` : ''}
+      ${t.recurrence ? `<span class="badge badge-recur" style="margin-right:.35rem">🔁 ${t.recurrence}</span>` : ''}
+      ${snoozed ? `<span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span> <button onclick="unsnoozeTask(${t.id})" style="font-size:.65rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none">Wake up</button>` : ''}
+      ${t.reason ? `<div style="margin-top:.3rem;font-style:italic">${esc(t.reason)}</div>` : ''}
+      ${t.customer ? `<div style="margin-top:.2rem">👤 ${esc(t.customer)}</div>` : ''}
+      ${!snoozed ? `<div style="margin-top:.4rem;display:flex;gap:.35rem;flex-wrap:wrap">
+        <button onclick="snoozeTask(${t.id},1);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 day</button>
+        <button onclick="snoozeTask(${t.id},3);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 3 days</button>
+        <button onclick="snoozeTask(${t.id},7);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 week</button>
+        <button onclick="snoozeTask(${t.id},30);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 month</button>
+        <button onclick="deleteTask(${t.id});event.stopPropagation()" style="font-size:.65rem;background:transparent;border:1px solid var(--high);border-radius:4px;color:var(--high);padding:.15rem .4rem;cursor:pointer;box-shadow:none">delete</button>
+      </div>` : ''}
+    </div>`;
+  return `
+    <div onclick="toggleRowDetail(${t.id})" class="task-row ${t.done?'done':''} ${snoozed?'snoozed':''}">
+      <div class="check-sm" onclick="toggleTask(${t.id});event.stopPropagation()">
+        <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="row-dot ${t.priority}"></div>
+      <div class="task-row-title">${esc(t.title)}${t.customer?` <span style="font-size:.67rem;color:var(--text-muted)">(${esc(t.customer)})</span>`:''}${t.recurrence?' 🔁':''}${snoozed?' 💤':''}</div>
+      ${ds?`<span class="due-date ${ds.cls}" style="font-size:.65rem">${ds.label}</span>`:''}
+      <span style="font-size:.65rem;color:var(--text-muted);margin-left:.15rem">›</span>
     </div>
-    <div class="row-dot ${t.priority}"></div>
-    <div class="task-row-title">${esc(t.title)}${t.customer?` <span style="font-size:.67rem;color:var(--text-muted)">(${esc(t.customer)})</span>`:''}${t.recurrence?' 🔁':''}</div>
-    ${ds?`<span class="due-date ${ds.cls}" style="font-size:.65rem">${ds.label}</span>`:''}
-  </div>`;
+    ${detail}`;
+}
+
+function toggleRowDetail(id) {
+  const el = document.getElementById('trd-' + id);
+  if (el) el.classList.toggle('open');
 }
 
 function taskCard(t) {
@@ -1058,9 +1155,19 @@ function taskCard(t) {
           oninput="this.rows=Math.max(1,this.value.split('\\n').length)">${esc(t.reason||'')}</textarea>
       </div>
       ${lastDone?`<div class="last-done">Last completed: ${lastDone}</div>`:''}
+      ${isCurrentlySnoozed(t)?`<div style="margin-top:.3rem;display:flex;align-items:center;gap:.5rem"><span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span><button onclick="unsnoozeTask(${t.id})" style="font-size:.68rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none;text-decoration:underline">Wake up</button></div>`:''}
     </div>
     <div class="task-actions">
       <button class="task-action-btn" onclick="toggleHelpPanel(${t.id}, event)">✦ Help me</button>
+      <div style="position:relative;display:inline-block">
+        <button class="task-action-btn" onclick="toggleSnoozeMenu(${t.id},event)">💤 Snooze</button>
+        <div id="snooze-menu-${t.id}" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-md);z-index:50;min-width:120px;padding:.3rem 0">
+          <div onclick="snoozeTask(${t.id},1);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 day</div>
+          <div onclick="snoozeTask(${t.id},3);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">3 days</div>
+          <div onclick="snoozeTask(${t.id},7);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 week</div>
+          <div onclick="snoozeTask(${t.id},30);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 month</div>
+        </div>
+      </div>
       <button class="task-action-btn del" onclick="deleteTask(${t.id})">delete</button>
     </div>
     <div class="task-help-panel" id="help-${t.id}">
@@ -1171,6 +1278,17 @@ function closeDrawer() {
   const btn=document.getElementById('mnav-'+(activeTab||'tasks'));
   if(btn) btn.classList.add('active');
 }
+
+function toggleSnoozeMenu(id, e) {
+  e.stopPropagation();
+  closeSnoozeMenus();
+  const m = document.getElementById('snooze-menu-' + id);
+  if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+function closeSnoozeMenus() {
+  document.querySelectorAll('[id^="snooze-menu-"]').forEach(m => m.style.display = 'none');
+}
+document.addEventListener('click', closeSnoozeMenus);
 
 // ════════════════════════════════════════════════════════════
 //  UTILS
@@ -1330,6 +1448,74 @@ function replaceThinking(taskId, text) {
     appendHelpMessage(taskId, 'assistant', text);
   }
   msgs.scrollTop = msgs.scrollHeight;
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  NOTIFICATION PAUSE
+// ════════════════════════════════════════════════════════════
+async function togglePause() {
+  const current = await apiFetch('GET', '/api/pause').catch(() => ({ paused: false }));
+  await setPause(!current.paused);
+}
+
+async function setPause(paused) {
+  await apiFetch('POST', '/api/pause', { paused });
+  updatePauseUI(paused);
+}
+
+function updatePauseUI(paused) {
+  const banner  = document.getElementById('pause-banner');
+  const btn     = document.getElementById('pause-btn');
+  if (banner) banner.style.display = paused ? 'flex' : 'none';
+  if (btn)    { btn.textContent = paused ? '▶ Resume' : '⏸ Pause'; btn.style.color = paused ? 'var(--accent)' : ''; }
+}
+
+// ════════════════════════════════════════════════════════════
+//  SNOOZE
+// ════════════════════════════════════════════════════════════
+function snoozeTask(id, days) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  const until = new Date();
+  until.setDate(until.getDate() + days);
+  t.snoozedUntil = until.toISOString().slice(0, 10);
+  scheduleSaveTasks();
+  renderTasks();
+}
+
+function unsnoozeTask(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  delete t.snoozedUntil;
+  scheduleSaveTasks();
+  renderTasks();
+}
+
+function isCurrentlySnoozed(t) {
+  if (!t.snoozedUntil) return false;
+  return new Date(t.snoozedUntil + 'T00:00:00') > new Date();
+}
+
+// ════════════════════════════════════════════════════════════
+//  INBOX — DELETE
+// ════════════════════════════════════════════════════════════
+async function deleteNotif(idx) {
+  notifLog = notifLog.filter((_, i) => i !== idx);
+  await apiFetch('POST', '/api/notifications/save', { log: notifLog });
+  renderNotifs(notifLog);
+  // Also refresh sidebar log
+  const el = document.getElementById('notif-log');
+  if (el) el.innerHTML = notifLog.length
+    ? [...notifLog].reverse().map(n => `<div class="notif-item"><div>${esc(n.type)}</div><div class="notif-time">${new Date(n.sentAt).toLocaleString()}</div></div>`).join('')
+    : '<span style="font-size:.73rem;color:var(--text-muted);font-style:italic">No notifications sent yet.</span>';
+}
+
+async function clearAllNotifs() {
+  if (!confirm('Clear all notifications from the inbox?')) return;
+  notifLog = [];
+  await apiFetch('POST', '/api/notifications/save', { log: [] });
+  renderNotifs(notifLog);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1499,14 +1685,20 @@ function renderNotifs(log) {
     return;
   }
 
-  c.innerHTML = [...log].reverse().map(n => `
+  c.innerHTML = [...log].reverse().map((n,i) => {
+    const realIdx = log.length - 1 - i;
+    return `
     <div class="panel-box" style="margin-bottom:.85rem;animation:fadeUp .22s ease">
       <div class="panel-box-header">
         <span class="panel-box-title">${esc(n.type)}</span>
-        <span style="font-size:.65rem;color:var(--text-muted)">${new Date(n.sentAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <span style="font-size:.65rem;color:var(--text-muted)">${new Date(n.sentAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
+          <button class="task-action-btn del" onclick="deleteNotif(${realIdx})" style="opacity:.7;font-size:.63rem;padding:.15rem .35rem">✕</button>
+        </div>
       </div>
       ${n.html ? `<div class="panel-box-body" style="font-size:.8rem;line-height:1.7;color:var(--text)">${n.html}</div>` : '<div class="panel-box-body"><span style="font-size:.75rem;color:var(--text-muted);font-style:italic">No content saved for this notification.</span></div>'}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 
