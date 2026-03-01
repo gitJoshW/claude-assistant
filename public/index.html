@@ -1023,24 +1023,21 @@ function renderTasks() {
   // Sync mobile filter counts
   const mAll  = document.getElementById('m-count-all');  if(mAll)  mAll.textContent  = tasks.length;
   const mOpen = document.getElementById('m-count-open'); if(mOpen) mOpen.textContent = tasks.filter(t=>!t.done&&!isCurrentlySnoozed(t)).length;
-  // Sync mobile category + customer lists
-  const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))].sort();
-  const mcl = document.getElementById('mobile-cat-list');
-  if(mcl) mcl.innerHTML = cats.map(c=>`<div class="fi" onclick="setFilter('cat:${esc(c)}');closeDrawer()">${esc(c)}</div>`).join('');
-  const customers=[...new Set(tasks.map(t=>t.customer).filter(Boolean))].sort();
-  const mcu = document.getElementById('mobile-customer-list');
-  if(mcu) mcu.innerHTML = customers.map(c=>`<div class="fi" onclick="setFilter('customer:${esc(c)}');closeDrawer()">👤 ${esc(c)}</div>`).join('') || '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
 
-  // Category sidebar
+  // Category sidebar + mobile (computed once)
   const cats=[...new Set(tasks.map(t=>t.category).filter(Boolean))].sort();
   document.getElementById('cat-list').innerHTML=cats.map(c=>`
     <div class="fi ${activeFilter==='cat:'+c?'active':''}" onclick="setFilter('cat:${esc(c)}')">${esc(c)}</div>`).join('');
+  const mcl = document.getElementById('mobile-cat-list');
+  if(mcl) mcl.innerHTML = cats.map(c=>`<div class="fi" onclick="setFilter('cat:${esc(c)}');closeDrawer()">${esc(c)}</div>`).join('');
 
-  // Customer sidebar
+  // Customer sidebar + mobile (computed once)
   const customers=[...new Set(tasks.map(t=>t.customer).filter(Boolean))].sort();
   document.getElementById('customer-list').innerHTML=customers.length
     ? customers.map(c=>`<div class="fi ${activeFilter==='customer:'+c?'active':''}" onclick="setFilter('customer:${esc(c)}')">👤 ${esc(c)}</div>`).join('')
     : '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
+  const mcu = document.getElementById('mobile-customer-list');
+  if(mcu) mcu.innerHTML = customers.map(c=>`<div class="fi" onclick="setFilter('customer:${esc(c)}');closeDrawer()">👤 ${esc(c)}</div>`).join('') || '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
 
   // Project sidebar
   const usedPids=[...new Set(tasks.map(t=>t.projectId).filter(Boolean))];
