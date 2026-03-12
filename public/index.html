@@ -237,6 +237,81 @@
 
     /* MOBILE FILTER DRAWER */
     #drawer-filter .fi{margin-bottom:.2rem}
+
+    /* TASK DESCRIPTION — readable at rest, editable on focus */
+    .task-desc-field {
+      width: 100%;
+      font-size: .78rem;
+      line-height: 1.65;
+      padding: .35rem .5rem;
+      resize: none;
+      overflow: hidden;
+      border-radius: 5px;
+      font-family: 'Instrument Sans', sans-serif;
+      transition: border-color .15s, background .15s, color .15s;
+      /* At rest: readable but subtle */
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      min-height: 0;
+      height: auto;
+    }
+    .task-desc-field:empty,
+    .task-desc-field:placeholder-shown {
+      background: transparent;
+      border-color: transparent;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .task-desc-field:focus {
+      background: var(--surface2);
+      border-color: var(--accent2);
+      color: var(--text);
+      outline: none;
+    }
+    .task-desc-field::placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* NOTES SEARCH */
+    .notes-search-bar {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .notes-search-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: .78rem;
+      padding: .4rem .65rem;
+      outline: none;
+      transition: border-color .2s;
+      min-height: unset;
+    }
+    .notes-search-input:focus { border-color: var(--accent2); }
+    .notes-filter-btn {
+      font-size: .68rem;
+      padding: .3rem .6rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-dim);
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: none;
+      transition: border-color .15s, color .15s;
+    }
+    .notes-filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
   </style>
 </head>
 <body>
@@ -398,6 +473,13 @@
 
     <!-- ── NOTES VIEW ── -->
     <div id="view-notes" style="display:none">
+      <div class="notes-search-bar">
+        <input class="notes-search-input" id="notes-search" placeholder="Search notes…" oninput="renderNotes()" />
+        <button class="notes-filter-btn active" id="nf-all" onclick="setNotesFilter('all')">All</button>
+        <button class="notes-filter-btn" id="nf-tasks" onclick="setNotesFilter('tasks')">Has tasks</button>
+        <button class="notes-filter-btn" id="nf-ideas" onclick="setNotesFilter('ideas')">Has ideas</button>
+        <button class="notes-filter-btn" id="nf-raw" onclick="setNotesFilter('raw')">Raw</button>
+      </div>
       <div class="input-card">
         <div class="input-card-title">Capture anything</div>
         <textarea id="notes-input" placeholder="Dump it here — meeting notes, ideas, things that happened&#10;&#10;Examples:&#10;• Changed smoke detector batteries today&#10;• Call Sarah re: contract renewal by end of month&#10;• Idea: switch to quarterly vendor reviews&#10;• Standup notes: blocked on API docs, need to sync with Jake"></textarea>
@@ -541,6 +623,7 @@ let activeFilter  = 'all';
 let activeTab     = 'tasks';
 let condensed     = localStorage.getItem('condensed') === 'true';
 let notifLog      = [];
+let notesFilter   = 'all';
 let _idCounter    = Date.now();
 function newId()  { return ++_idCounter; }  // Clean integer IDs, no floats
 
@@ -757,8 +840,10 @@ async function toggleTask(id) {
       tasks.push({ ...t, id: newId(), done: false, dueDate: next, createdAt: new Date().toISOString() });
     }
     t.done = true;
+    t.completedAt = new Date().toISOString();
   } else {
     t.done = false;
+    delete t.completedAt;
   }
   await apiFetch('POST', '/api/tasks', { tasks });
   renderTasks();
@@ -1077,6 +1162,7 @@ function taskRow(t) {
       ${t.recurrence ? `<span class="badge badge-recur" style="margin-right:.35rem">🔁 ${t.recurrence}</span>` : ''}
       ${snoozed ? `<span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span> <button onclick="unsnoozeTask(${t.id})" style="font-size:.65rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none">Wake up</button>` : ''}
       ${t.reason ? `<div style="margin-top:.3rem;font-style:italic">${esc(t.reason)}</div>` : ''}
+      ${t.done && t.completedAt ? `<div style="margin-top:.2rem;font-size:.72rem;color:var(--accent)">✓ Completed ${new Date(t.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>` : ''}
       ${t.customer ? `<div style="margin-top:.2rem">👤 ${esc(t.customer)}</div>` : ''}
       ${!snoozed ? `<div style="margin-top:.4rem;display:flex;gap:.35rem;flex-wrap:wrap">
         <button onclick="snoozeTask(${t.id},1);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 day</button>
@@ -1143,15 +1229,14 @@ function taskCard(t) {
         ${projects.length?`<select style="${editStyle}" onchange="setTaskProject(${t.id},this.value)">
           <option value="">no project</option>${projOptions}</select>`:''}
       </div>
-      <div style="margin-top:.35rem">
-        <textarea style="font-size:.7rem;font-style:italic;min-height:0;height:auto;line-height:1.5;padding:.2rem .4rem;resize:none;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--text-muted);width:100%;transition:border-color .15s,background .15s"
-          rows="1"
-          placeholder="+ add a note or description…"
+      <div style="margin-top:.45rem">
+        <textarea class="task-desc-field"
+          placeholder="+ add a note or descriptionâ¦"
           onblur="setTaskReason(${t.id},this.value)"
-          onfocus="this.style.borderColor='var(--accent2)';this.style.background='var(--surface2)'"
-          oninput="this.rows=Math.max(1,this.value.split('\\n').length)">${esc(t.reason||'')}</textarea>
+          oninput="autoResizeTextarea(this)"
+          onfocus="autoResizeTextarea(this)">${esc(t.reason||'')}</textarea>
       </div>
-      ${lastDone?`<div class="last-done">Last completed: ${lastDone}</div>`:''}
+      ${t.done && t.completedAt ? `<div class="last-done">✓ Completed ${new Date(t.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>` : lastDone ? `<div class="last-done">Last completed: ${lastDone}</div>` : ''}
       ${isCurrentlySnoozed(t)?`<div style="margin-top:.3rem;display:flex;align-items:center;gap:.5rem"><span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span><button onclick="unsnoozeTask(${t.id})" style="font-size:.68rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none;text-decoration:underline">Wake up</button></div>`:''}
     </div>
     <div class="task-actions">
@@ -1274,6 +1359,20 @@ function closeDrawer() {
   document.querySelectorAll('.mobile-nav-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('mnav-'+(activeTab||'tasks'));
   if(btn) btn.classList.add('active');
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function setNotesFilter(f) {
+  notesFilter = f;
+  ['all','tasks','ideas','raw'].forEach(id => {
+    const b = document.getElementById('nf-' + id);
+    if (b) b.classList.toggle('active', id === f);
+  });
+  renderNotes();
 }
 
 function toggleSnoozeMenu(id, e) {
@@ -1649,7 +1748,23 @@ function renderNotes() {
     c.innerHTML = `<div class="empty-state"><span class="big">Empty mind</span>Dump your thoughts above — Claude will sort them out.</div>`;
     return;
   }
-  const sorted = [...notes].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
+  // Apply search
+  const q = (document.getElementById('notes-search')?.value || '').toLowerCase().trim();
+  // Apply filter
+  let filtered = [...notes];
+  if (notesFilter === 'tasks') filtered = filtered.filter(n => n.tasksExtracted > 0);
+  else if (notesFilter === 'ideas') filtered = filtered.filter(n => n.ideasExtracted > 0);
+  else if (notesFilter === 'raw') filtered = filtered.filter(n => !n.tasksExtracted && !n.logsExtracted && !n.ideasExtracted);
+  if (q) filtered = filtered.filter(n =>
+    n.text.toLowerCase().includes(q) ||
+    (n.summary || '').toLowerCase().includes(q) ||
+    (n.ideas || []).some(i => i.toLowerCase().includes(q))
+  );
+  if (!filtered.length) {
+    c.innerHTML = `<div class="empty-state"><span class="big">No matches</span>Try a different search or filter.</div>`;
+    return;
+  }
+  const sorted = [...filtered].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
   c.innerHTML = sorted.map(n => `
     <div class="panel-box" style="margin-bottom:.75rem;animation:fadeUp .22s ease">
       <div class="panel-box-header" style="justify-content:space-between">
@@ -1663,7 +1778,7 @@ function renderNotes() {
       </div>
       <div class="panel-box-body">
         ${n.summary ? `<div style="font-size:.72rem;color:var(--accent);font-style:italic;margin-bottom:.5rem">${esc(n.summary)}</div>` : ''}
-        <div style="font-size:.78rem;color:var(--text-dim);white-space:pre-wrap;line-height:1.65">${esc(n.text)}</div>
+        <div style="font-size:.78rem;color:var(--text-dim);white-space:pre-wrap;line-height:1.65">${highlightMatch(esc(n.text), q)}</div>
         ${n.ideas?.length ? `<div style="margin-top:.6rem;border-top:1px solid var(--border);padding-top:.5rem">${n.ideas.map(i=>`<div style="font-size:.72rem;color:var(--project)">💡 ${esc(i)}</div>`).join('')}</div>` : ''}
       </div>
     </div>`).join('');
