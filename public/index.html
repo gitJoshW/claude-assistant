@@ -123,6 +123,7 @@
     .task-title{font-size:.88rem;font-weight:500;line-height:1.4;color:var(--text);word-break:break-word}
     .task-card.done .task-title{text-decoration:line-through;color:var(--text-muted)}
     .task-meta{display:flex;gap:.35rem;margin-top:.4rem;flex-wrap:wrap;align-items:center}
+    .task-meta>*{flex-shrink:0;flex-grow:0}
     .badge{font-size:.62rem;letter-spacing:.04em;padding:.15rem .45rem;border-radius:20px;font-weight:500;white-space:nowrap}
     .badge-high{background:var(--high-bg);color:var(--high)}
     .badge-medium{background:var(--med-bg);color:var(--med)}
@@ -143,7 +144,7 @@
     .task-action-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);cursor:pointer;font-size:.68rem;padding:.2rem .45rem;box-shadow:none;transition:all .15s}
     .task-action-btn:hover{background:var(--surface2)}
     .task-action-btn.del:hover{background:var(--high-bg);border-color:var(--high);color:var(--high)}
-    .customer-edit{font-size:.7rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:.15rem .4rem;color:var(--text);font-family:'Instrument Sans',sans-serif;outline:none;width:120px;transition:border-color .2s}
+    .customer-edit{font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:.15rem .4rem;color:var(--text);font-family:'Instrument Sans',sans-serif;outline:none;width:100px;max-width:100px;transition:border-color .2s}
     .customer-edit:focus{border-color:var(--accent2)}
 
     /* PROJECTS */
@@ -1204,7 +1205,7 @@ function taskCard(t) {
   const projOptions = projects.filter(p=>!p.archived).map(p=>
     `<option value="${p.id}" ${String(t.projectId)===String(p.id)?'selected':''}>${esc(p.name)}</option>`
   ).join('');
-  const editStyle = `font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:border-color .15s`;
+  const editStyle = `font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:border-color .15s;width:auto;max-width:140px`;
 
   return `<div class="task-card priority-${t.priority} ${t.done?'done':''}" id="tc-${t.id}">
     <div class="task-card-top">
@@ -1219,7 +1220,7 @@ function taskCard(t) {
             <option value="medium" ${t.priority==='medium'?'selected':''}>🟡 medium</option>
             <option value="low"    ${t.priority==='low'   ?'selected':''}>🔵 low</option>
           </select>
-          <input style="${editStyle};width:110px" value="${esc(t.category)}" placeholder="category"
+          <input style="${editStyle};width:90px;max-width:90px" value="${esc(t.category)}" placeholder="category"
             onblur="setTaskCategory(${t.id},this.value)"
             onkeydown="if(event.key==='Enter')this.blur()"
             onfocus="this.style.borderColor='var(--accent2)'" />
