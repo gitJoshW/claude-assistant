@@ -56,8 +56,8 @@
       <button id="pause-btn" class="btn-outline btn-sm" style="font-size:.65rem;padding:.15rem .45rem" onclick="togglePause()">⏸ Pause</button>
     </div>
     <div class="section-label">Tasks</div>
-    <div id="filter-all" class="fi active" onclick="setFilter('all')"><span>All</span><span class="fc" id="count-all">0</span></div>
-    <div id="filter-open" class="fi" onclick="setFilter('open')"><span>Open</span><span class="fc" id="count-open">0</span></div>
+    <div id="filter-all" class="fi" onclick="setFilter('all')"><span>All</span><span class="fc" id="count-all">0</span></div>
+    <div id="filter-open" class="fi active" onclick="setFilter('open')"><span>Open</span><span class="fc" id="count-open">0</span></div>
     <div id="filter-done" class="fi" onclick="setFilter('done')"><span>Done</span><span class="fc" id="count-done">0</span></div>
     <div id="filter-due-soon" class="fi" onclick="setFilter('due-soon')"><span>⏰ Due soon</span><span class="fc" id="count-due-soon">0</span></div>
     <div id="filter-recurring" class="fi" onclick="setFilter('recurring')"><span>🔁 Recurring</span><span class="fc" id="count-recurring">0</span></div>
@@ -282,8 +282,8 @@
 <div class="drawer" id="drawer-filter">
   <div class="drawer-handle"></div>
   <div class="drawer-section">Filter Tasks</div>
-  <div id="mobile-filter-all" class="fi active" onclick="setFilter('all');closeDrawer()"><span>All tasks</span><span class="fc" id="m-count-all">0</span></div>
-  <div id="mobile-filter-open" class="fi" onclick="setFilter('open');closeDrawer()"><span>Open</span><span class="fc" id="m-count-open">0</span></div>
+  <div id="mobile-filter-all" class="fi" onclick="setFilter('all');closeDrawer()"><span>All tasks</span><span class="fc" id="m-count-all">0</span></div>
+  <div id="mobile-filter-open" class="fi active" onclick="setFilter('open');closeDrawer()"><span>Open</span><span class="fc" id="m-count-open">0</span></div>
   <div id="mobile-filter-done" class="fi" onclick="setFilter('done');closeDrawer()"><span>Done</span></div>
   <div id="mobile-filter-due-soon" class="fi" onclick="setFilter('due-soon');closeDrawer()"><span>⏰ Due soon</span></div>
   <div id="mobile-filter-recurring" class="fi" onclick="setFilter('recurring');closeDrawer()"><span>🔁 Recurring</span></div>
@@ -317,7 +317,7 @@ let projects      = [];
 let goals         = [];
 let memory        = '';
 let completionLog = [];
-let activeFilter  = 'all';
+let activeFilter  = 'open';
 let activeTab     = 'tasks';
 let condensed     = localStorage.getItem('condensed') === 'true';
 let notifLog      = [];
@@ -570,7 +570,7 @@ function setTaskPriority(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.p
 function setTaskCategory(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.category=val.trim()||'General'; scheduleSaveTasks(); renderTasks();} }
 function setTaskReason(id, val)    { const t=tasks.find(t=>t.id===id); if(t){t.reason=val.trim(); scheduleSaveTasks();} }
 function setGoalDesc(id, val)      { const g=goals.find(g=>g.id===id); if(g){g.description=val.trim(); scheduleSaveGoals();} }
-function deleteTask(id)            { tasks=tasks.filter(t=>t.id!==id); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
+function deleteTask(id)            { if (!confirm('Delete this task?')) return; tasks=tasks.filter(t=>t.id!==id); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
 function clearDone()               { tasks=tasks.filter(t=>!t.done); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
 function resetAll()                { if(!confirm('Delete all tasks?')) return; tasks=[]; apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
 
@@ -1439,6 +1439,7 @@ async function saveNoteRaw() {
 }
 
 async function deleteNote(id) {
+  if (!confirm('Delete this note?')) return;
   notes = notes.filter(n => n.id !== id);
   await apiFetch('POST', '/api/notes', { notes });
   renderNotes();
