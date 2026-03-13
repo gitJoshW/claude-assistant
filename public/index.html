@@ -95,10 +95,11 @@
     .task-card.priority-high{border-left:3px solid var(--high)}
     .task-card.priority-medium{border-left:3px solid var(--med)}
     .task-card.priority-low{border-left:3px solid var(--low)}
-    /* Layout: checkbox + title on top, meta below, actions at bottom */
+    /* Layout: checkbox left, everything else right */
     .task-card-top{display:flex;align-items:flex-start;gap:.75rem;width:100%}
-    .task-card-title-row{flex:1;min-width:0}
-    .task-card-content{margin-top:.4rem}
+    .task-card-title-row{flex:1;overflow:hidden}
+    .task-title{font-size:.88rem;font-weight:500;line-height:1.4;color:var(--text);white-space:normal;word-wrap:break-word;overflow-wrap:break-word;display:block;width:100%}
+    .task-card-content{margin-top:.4rem;width:100%}
     .task-actions{display:flex;gap:.25rem;flex-wrap:wrap;margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--border);opacity:.7;transition:opacity .15s}
     .task-card:hover .task-actions,.task-card:focus-within .task-actions{opacity:1}
     @media(max-width:900px){.task-actions{opacity:1}}
