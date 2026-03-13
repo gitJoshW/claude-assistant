@@ -1751,6 +1751,12 @@ async function deleteNote(id) {
   renderNotes();
 }
 
+function highlightMatch(text, q) {
+  if (!q) return text;
+  const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+  return text.replace(re, '<mark style="background:#fff3a3;border-radius:2px;padding:0 1px">$1</mark>');
+}
+
 function renderNotes() {
   const c = document.getElementById('notes-list'); if (!c) return;
   document.getElementById('tab-notes').textContent = notes.length ? `Notes (${notes.length})` : 'Notes';
