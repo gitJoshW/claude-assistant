@@ -1,5 +1,5 @@
 // ── Bump CACHE version on every deploy to force client refresh ──
-const CACHE = 'assistant-v4';
+const CACHE = 'assistant-v5';
 const PRECACHE = ['/'];
 
 self.addEventListener('install', e => {
