@@ -89,12 +89,15 @@
     /* TASK CARDS */
     .task-group-label{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin:1.25rem 0 .6rem;font-weight:500;display:flex;align-items:center;gap:.5rem}
     .task-group-label::after{content:'';flex:1;height:1px;background:var(--border)}
-    .task-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;display:flex;align-items:flex-start;gap:.85rem;margin-bottom:.5rem;box-shadow:var(--shadow);transition:border-color .2s,box-shadow .2s,opacity .2s;animation:fadeUp .22s ease;position:relative}
+    .task-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.5rem;box-shadow:var(--shadow);transition:border-color .2s,box-shadow .2s,opacity .2s;animation:fadeUp .22s ease;position:relative}
     .task-card:hover{border-color:var(--border2);box-shadow:var(--shadow-md)}
-    .task-card.done{opacity:.45;box-shadow:none}
+    .task-card.done{opacity:.55;box-shadow:none}
     .task-card.priority-high{border-left:3px solid var(--high)}
     .task-card.priority-medium{border-left:3px solid var(--med)}
     .task-card.priority-low{border-left:3px solid var(--low)}
+    /* Card top row: checkbox + title + actions all on one line */
+    .task-card-top{display:flex;align-items:flex-start;gap:.75rem;width:100%}
+    .task-card-content{flex:1;min-width:0}
     @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
     /* CONDENSED ROW */
@@ -117,9 +120,9 @@
     .task-row.done .check-sm{background:var(--accent);border-color:var(--accent)}
 
     .task-body{flex:1;min-width:0}
-    .task-title{font-size:.84rem;line-height:1.45}
+    .task-title{font-size:.88rem;font-weight:500;line-height:1.4;color:var(--text);word-break:break-word}
     .task-card.done .task-title{text-decoration:line-through;color:var(--text-muted)}
-    .task-meta{display:flex;gap:.35rem;margin-top:.35rem;flex-wrap:wrap;align-items:center}
+    .task-meta{display:flex;gap:.35rem;margin-top:.4rem;flex-wrap:wrap;align-items:center}
     .badge{font-size:.62rem;letter-spacing:.04em;padding:.15rem .45rem;border-radius:20px;font-weight:500;white-space:nowrap}
     .badge-high{background:var(--high-bg);color:var(--high)}
     .badge-medium{background:var(--med-bg);color:var(--med)}
@@ -134,8 +137,9 @@
     .due-date.on-track{background:var(--accent-light);color:var(--accent2);border-color:rgba(74,124,40,.2)}
     .task-reason{font-size:.68rem;color:var(--text-muted);font-style:italic;margin-top:.3rem;line-height:1.5}
     .last-done{font-size:.67rem;color:var(--text-muted);font-style:italic;margin-top:.2rem}
-    .task-actions{display:flex;gap:.25rem;flex-shrink:0;opacity:0;transition:opacity .15s}
-    .task-card:hover .task-actions{opacity:1}
+    .task-actions{display:flex;gap:.25rem;flex-shrink:0;opacity:.5;transition:opacity .15s;margin-top:.1rem}
+    .task-card:hover .task-actions,.task-card:focus-within .task-actions{opacity:1}
+    @media(max-width:900px){.task-actions{opacity:1}}
     .task-action-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);cursor:pointer;font-size:.68rem;padding:.2rem .45rem;box-shadow:none;transition:all .15s}
     .task-action-btn:hover{background:var(--surface2)}
     .task-action-btn.del:hover{background:var(--high-bg);border-color:var(--high);color:var(--high)}
@@ -1202,34 +1206,33 @@ function taskCard(t) {
   ).join('');
   const editStyle = `font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:border-color .15s`;
 
-  return `<div class="task-card priority-${t.priority} ${t.done?'done':''}" style="position:relative" id="tc-${t.id}">
-    <div class="task-check" onclick="toggleTask(${t.id})">
-      <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3 5.5L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
-    <div class="task-body">
-      <div class="task-title">${esc(t.title)}</div>
-      <div class="task-meta">
-        <select style="${editStyle}" onchange="setTaskPriority(${t.id},this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'">
-          <option value="high"   ${t.priority==='high'  ?'selected':''}>🔴 high</option>
-          <option value="medium" ${t.priority==='medium'?'selected':''}>🟡 medium</option>
-          <option value="low"    ${t.priority==='low'   ?'selected':''}>🔵 low</option>
-        </select>
-        <input style="${editStyle};width:100px" value="${esc(t.category)}" placeholder="category"
-          onblur="setTaskCategory(${t.id},this.value)"
-          onkeydown="if(event.key==='Enter')this.blur()"
-          onfocus="this.style.borderColor='var(--accent2)'" />
-        ${t.recurrence?`<span class="badge badge-recur">🔁 ${t.recurrence}</span>`:''}
-        ${t.projectName?`<span class="badge badge-project" onclick="setFilter('proj:${t.projectId}')">📁 ${esc(t.projectName)}</span>`:''}
-        ${dueBadge}
-        <input type="date" id="de-${t.id}" value="${t.dueDate||''}" onchange="setDueDate(${t.id},this.value)" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
+  return `<div class="task-card priority-${t.priority} ${t.done?'done':''}" id="tc-${t.id}">
+    <div class="task-card-top">
+      <div class="task-check" onclick="toggleTask(${t.id})">
+        <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3 5.5L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <div class="task-meta" style="margin-top:.3rem">
-        <input class="customer-edit" placeholder="+ customer" value="${esc(t.customer||'')}"
-          onblur="setCustomer(${t.id},this.value)"
-          onkeydown="if(event.key==='Enter')this.blur()" />
-        ${projects.length?`<select style="${editStyle}" onchange="setTaskProject(${t.id},this.value)">
-          <option value="">no project</option>${projOptions}</select>`:''}
-      </div>
+      <div class="task-card-content">
+        <div class="task-title">${esc(t.title)}</div>
+        <div class="task-meta">
+          <select style="${editStyle}" onchange="setTaskPriority(${t.id},this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'">
+            <option value="high"   ${t.priority==='high'  ?'selected':''}>🔴 high</option>
+            <option value="medium" ${t.priority==='medium'?'selected':''}>🟡 medium</option>
+            <option value="low"    ${t.priority==='low'   ?'selected':''}>🔵 low</option>
+          </select>
+          <input style="${editStyle};width:110px" value="${esc(t.category)}" placeholder="category"
+            onblur="setTaskCategory(${t.id},this.value)"
+            onkeydown="if(event.key==='Enter')this.blur()"
+            onfocus="this.style.borderColor='var(--accent2)'" />
+          ${t.recurrence?`<span class="badge badge-recur">🔁 ${t.recurrence}</span>`:''}
+          ${t.projectName?`<span class="badge badge-project" onclick="setFilter('proj:${t.projectId}')">📁 ${esc(t.projectName)}</span>`:''}
+          ${dueBadge}
+          <input type="date" id="de-${t.id}" value="${t.dueDate||''}" onchange="setDueDate(${t.id},this.value)" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
+          <input class="customer-edit" placeholder="+ customer" value="${esc(t.customer||'')}"
+            onblur="setCustomer(${t.id},this.value)"
+            onkeydown="if(event.key==='Enter')this.blur()" />
+          ${projects.length?`<select style="${editStyle}" onchange="setTaskProject(${t.id},this.value)">
+            <option value="">no project</option>${projOptions}</select>`:''}
+        </div>
       <div style="margin-top:.45rem">
         <textarea class="task-desc-field"
           placeholder="+ add a note or descriptionâ¦"
@@ -1239,19 +1242,20 @@ function taskCard(t) {
       </div>
       ${t.done && t.completedAt ? `<div class="last-done">✓ Completed ${new Date(t.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>` : lastDone ? `<div class="last-done">Last completed: ${lastDone}</div>` : ''}
       ${isCurrentlySnoozed(t)?`<div style="margin-top:.3rem;display:flex;align-items:center;gap:.5rem"><span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span><button onclick="unsnoozeTask(${t.id})" style="font-size:.68rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none;text-decoration:underline">Wake up</button></div>`:''}
-    </div>
-    <div class="task-actions">
-      <button class="task-action-btn" onclick="toggleHelpPanel(${t.id}, event)">✦ Help me</button>
-      <div style="position:relative;display:inline-block">
-        <button class="task-action-btn" onclick="toggleSnoozeMenu(${t.id},event)">💤 Snooze</button>
-        <div id="snooze-menu-${t.id}" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-md);z-index:50;min-width:120px;padding:.3rem 0">
-          <div onclick="snoozeTask(${t.id},1);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 day</div>
-          <div onclick="snoozeTask(${t.id},3);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">3 days</div>
-          <div onclick="snoozeTask(${t.id},7);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 week</div>
-          <div onclick="snoozeTask(${t.id},30);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 month</div>
-        </div>
       </div>
-      <button class="task-action-btn del" onclick="deleteTask(${t.id})">delete</button>
+      <div class="task-actions">
+        <button class="task-action-btn" onclick="toggleHelpPanel(${t.id}, event)">✦ Help me</button>
+        <div style="position:relative;display:inline-block">
+          <button class="task-action-btn" onclick="toggleSnoozeMenu(${t.id},event)">💤 Snooze</button>
+          <div id="snooze-menu-${t.id}" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-md);z-index:50;min-width:120px;padding:.3rem 0">
+            <div onclick="snoozeTask(${t.id},1);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 day</div>
+            <div onclick="snoozeTask(${t.id},3);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">3 days</div>
+            <div onclick="snoozeTask(${t.id},7);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 week</div>
+            <div onclick="snoozeTask(${t.id},30);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 month</div>
+          </div>
+        </div>
+        <button class="task-action-btn del" onclick="deleteTask(${t.id})">delete</button>
+      </div>
     </div>
     <div class="task-help-panel" id="help-${t.id}">
       <div class="help-messages" id="help-msgs-${t.id}"></div>
