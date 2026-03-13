@@ -122,8 +122,12 @@
     .task-body{flex:1;min-width:0}
     .task-title{font-size:.88rem;font-weight:500;line-height:1.4;color:var(--text);word-break:break-word}
     .task-card.done .task-title{text-decoration:line-through;color:var(--text-muted)}
-    .task-meta{display:flex;gap:.35rem;margin-top:.4rem;flex-wrap:wrap;align-items:center}
-    .task-meta>*{flex-shrink:0;flex-grow:0}
+    .task-meta{display:flex;gap:.3rem;margin-top:.4rem;flex-wrap:wrap;align-items:center}
+    .task-meta select,.task-meta input{flex:0 0 auto!important;display:inline-block!important}
+    .task-meta select{width:auto;min-width:0}
+    .task-meta input[placeholder="category"]{width:80px}
+    .task-meta input[placeholder="+ customer"]{width:90px}
+    .task-meta .badge{flex-shrink:0}
     .badge{font-size:.62rem;letter-spacing:.04em;padding:.15rem .45rem;border-radius:20px;font-weight:500;white-space:nowrap}
     .badge-high{background:var(--high-bg);color:var(--high)}
     .badge-medium{background:var(--med-bg);color:var(--med)}
@@ -1205,7 +1209,7 @@ function taskCard(t) {
   const projOptions = projects.filter(p=>!p.archived).map(p=>
     `<option value="${p.id}" ${String(t.projectId)===String(p.id)?'selected':''}>${esc(p.name)}</option>`
   ).join('');
-  const editStyle = `font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:border-color .15s;width:auto;max-width:140px`;
+  const editStyle = `font-size:.68rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;outline:none;min-height:unset;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:border-color .15s`;
 
   return `<div class="task-card priority-${t.priority} ${t.done?'done':''}" id="tc-${t.id}">
     <div class="task-card-top">
@@ -1215,7 +1219,7 @@ function taskCard(t) {
       <div class="task-card-content">
         <div class="task-title">${esc(t.title)}</div>
         <div class="task-meta">
-          <select style="${editStyle}" onchange="setTaskPriority(${t.id},this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'">
+          <select style="${editStyle};width:90px" onchange="setTaskPriority(${t.id},this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'">
             <option value="high"   ${t.priority==='high'  ?'selected':''}>🔴 high</option>
             <option value="medium" ${t.priority==='medium'?'selected':''}>🟡 medium</option>
             <option value="low"    ${t.priority==='low'   ?'selected':''}>🔵 low</option>
@@ -1231,12 +1235,12 @@ function taskCard(t) {
           <input class="customer-edit" placeholder="+ customer" value="${esc(t.customer||'')}"
             onblur="setCustomer(${t.id},this.value)"
             onkeydown="if(event.key==='Enter')this.blur()" />
-          ${projects.length?`<select style="${editStyle}" onchange="setTaskProject(${t.id},this.value)">
-            <option value="">no project</option>${projOptions}</select>`:''}
+          ${projects.length?`<select style="${editStyle};max-width:130px" onchange="setTaskProject(${t.id},this.value)">
+            <option value="">— proj —</option>${projOptions}</select>`:''}
         </div>
       <div style="margin-top:.45rem">
         <textarea class="task-desc-field"
-          placeholder="+ add a note or descriptionâ¦"
+          placeholder="+ add a note or description…"
           onblur="setTaskReason(${t.id},this.value)"
           oninput="autoResizeTextarea(this)"
           onfocus="autoResizeTextarea(this)">${esc(t.reason||'')}</textarea>
