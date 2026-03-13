@@ -32,6 +32,7 @@ body {
   color: var(--text);
   font-family: 'Instrument Sans', sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ── ANIMATIONS ─────────────────────────────────────────────── */
@@ -76,7 +77,7 @@ body {
   top: 52px;
 }
 .sidebar-right { border-right: none; border-left: 1px solid var(--border); }
-.center { padding: 1.75rem 2rem; max-width: 720px; }
+.center { padding: 1.75rem 2rem; max-width: 720px; width: 100%; }
 
 /* ── SECTION LABELS ──────────────────────────────────────────── */
 .section-label {
@@ -612,7 +613,17 @@ textarea::placeholder { color: var(--text-muted); }
   .main                  { grid-template-columns: 1fr; }
   .sidebar-left,
   .sidebar-right         { display: none; }
-  .center                { padding: 1rem; padding-bottom: 80px; }
+  .center                { padding: 1rem; padding-bottom: 80px; width: 100%; max-width: 100%; overflow-x: hidden; }
   .mobile-nav            { display: flex; }
   .task-actions          { opacity: 1 !important; }
+
+  /* Prevent notes cards from overflowing viewport */
+  #view-notes            { width: 100%; overflow-x: hidden; }
+  .notes-search-bar      { flex-wrap: wrap; }
+  .panel-box             { max-width: 100%; overflow: hidden; }
+  .panel-box-body        { word-break: break-word; overflow-wrap: break-word; }
+
+  /* Prevent any card content from blowing out width */
+  .task-card, .goal-card, .project-card { max-width: 100%; }
+  pre, code              { white-space: pre-wrap; word-break: break-word; }
 }
