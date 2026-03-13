@@ -1743,6 +1743,7 @@ async function deleteNote(id) {
 
 function renderNotes() {
   const c = document.getElementById('notes-list'); if (!c) return;
+  console.log('[renderNotes] notes:', notes.length, 'filter:', notesFilter);
   document.getElementById('tab-notes').textContent = notes.length ? `Notes (${notes.length})` : 'Notes';
   if (!notes.length) {
     c.innerHTML = `<div class="empty-state"><span class="big">Empty mind</span>Dump your thoughts above — Claude will sort them out.</div>`;
@@ -1750,18 +1751,22 @@ function renderNotes() {
   }
   // Apply search
   const q = (document.getElementById('notes-search')?.value || '').toLowerCase().trim();
-  // Apply filter
+  // Apply filter — treat missing fields as 0 for older notes
   let filtered = [...notes];
-  if (notesFilter === 'tasks') filtered = filtered.filter(n => n.tasksExtracted > 0);
-  else if (notesFilter === 'ideas') filtered = filtered.filter(n => n.ideasExtracted > 0);
-  else if (notesFilter === 'raw') filtered = filtered.filter(n => !n.tasksExtracted && !n.logsExtracted && !n.ideasExtracted);
+  if (notesFilter === 'tasks') filtered = filtered.filter(n => (n.tasksExtracted || 0) > 0);
+  else if (notesFilter === 'ideas') filtered = filtered.filter(n => (n.ideasExtracted || 0) > 0);
+  else if (notesFilter === 'raw') filtered = filtered.filter(n => !(n.tasksExtracted || 0) && !(n.logsExtracted || 0) && !(n.ideasExtracted || 0));
+  // 'all' — no filtering, show everything
   if (q) filtered = filtered.filter(n =>
     n.text.toLowerCase().includes(q) ||
     (n.summary || '').toLowerCase().includes(q) ||
     (n.ideas || []).some(i => i.toLowerCase().includes(q))
   );
   if (!filtered.length) {
-    c.innerHTML = `<div class="empty-state"><span class="big">No matches</span>Try a different search or filter.</div>`;
+    const msg = (q || notesFilter !== 'all')
+      ? 'Try a different search or filter.'
+      : 'Notes exist but could not be displayed — try refreshing.';
+    c.innerHTML = `<div class="empty-state"><span class="big">No matches</span>${msg}</div>`;
     return;
   }
   const sorted = [...filtered].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
