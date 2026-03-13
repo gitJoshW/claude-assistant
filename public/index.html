@@ -701,6 +701,7 @@ async function syncNow() {
     notifLog = notifLog.filter(n => new Date(n.sentAt) > thirtyDaysAgo);
     if (memory) document.getElementById('memory-text').value = memory;
     updatePauseUI(ps?.paused || false);
+    notesFilter = 'all';  // Always reset notes filter on sync
     renderAll();
     setSyncStatus('ok', 'Synced');
   } catch(e) {
@@ -1375,6 +1376,15 @@ function setNotesFilter(f) {
   renderNotes();
 }
 
+// Reset filter buttons to 'all' state in the DOM
+function resetNotesFilterUI() {
+  notesFilter = 'all';
+  ['all','tasks','ideas','raw'].forEach(id => {
+    const b = document.getElementById('nf-' + id);
+    if (b) b.classList.toggle('active', id === 'all');
+  });
+}
+
 function toggleSnoozeMenu(id, e) {
   e.stopPropagation();
   closeSnoozeMenus();
@@ -1743,7 +1753,6 @@ async function deleteNote(id) {
 
 function renderNotes() {
   const c = document.getElementById('notes-list'); if (!c) return;
-  console.log('[renderNotes] notes:', notes.length, 'filter:', notesFilter);
   document.getElementById('tab-notes').textContent = notes.length ? `Notes (${notes.length})` : 'Notes';
   if (!notes.length) {
     c.innerHTML = `<div class="empty-state"><span class="big">Empty mind</span>Dump your thoughts above — Claude will sort them out.</div>`;
