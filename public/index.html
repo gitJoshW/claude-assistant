@@ -248,6 +248,19 @@
         <textarea id="memory-text" placeholder="Tell Claude about yourself — role, priorities, work style…" style="min-height:80px"></textarea>
       </div>
     </div>
+
+    <div class="panel-box">
+      <div class="panel-box-header"><span class="panel-box-title">Data Backup</span></div>
+      <div class="panel-box-body">
+        <p style="font-size:.72rem;color:var(--text-muted);line-height:1.6;margin-bottom:.75rem">Export everything to a JSON file, or restore from a previous backup.</p>
+        <button onclick="exportData()" style="width:100%;margin-bottom:.5rem">⬇ Export All Data</button>
+        <label style="display:block;width:100%">
+          <button class="btn-outline" onclick="document.getElementById('import-file').click()" style="width:100%">⬆ Import from Backup</button>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)" />
+        </label>
+        <div id="backup-status" style="font-size:.71rem;margin-top:.5rem;color:var(--text-muted)"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1530,6 +1543,94 @@ function renderNotifs(log) {
 
 
 init();
+
+// ════════════════════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ════════════════════════════════════════════════════════════
+async function exportData() {
+  const status = document.getElementById('backup-status');
+  status.style.color = 'var(--text-muted)';
+  status.textContent = 'Gathering data…';
+  try {
+    const [tasksRes, goalsRes, projectsRes, notesRes, logRes, memRes, notifsRes] = await Promise.all([
+      apiFetch('GET', '/api/tasks'),
+      apiFetch('GET', '/api/goals'),
+      apiFetch('GET', '/api/projects'),
+      apiFetch('GET', '/api/notes'),
+      apiFetch('GET', '/api/completion-log'),
+      apiFetch('GET', '/api/memory'),
+      apiFetch('GET', '/api/notifications'),
+    ]);
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      tasks:          tasksRes,
+      goals:          goalsRes,
+      projects:       projectsRes,
+      notes:          notesRes,
+      completionLog:  logRes,
+      memory:         memRes.memory || memRes,
+      notifications:  notifsRes,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href     = url;
+    a.download = `personal-assistant-backup-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    status.style.color = 'var(--accent2)';
+    status.textContent = `✓ Exported ${backup.tasks.length} tasks, ${backup.notes.length} notes, ${backup.goals.length} goals.`;
+  } catch (e) {
+    status.style.color = 'var(--high)';
+    status.textContent = 'Export failed: ' + e.message;
+  }
+}
+
+async function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('backup-status');
+  status.style.color = 'var(--text-muted)';
+  status.textContent = 'Reading file…';
+  try {
+    const text   = await file.text();
+    const backup = JSON.parse(text);
+    if (!backup.version || !backup.exportedAt) {
+      throw new Error('This doesn\'t look like a valid backup file.');
+    }
+    const summary = [
+      backup.tasks?.length        && `${backup.tasks.length} tasks`,
+      backup.goals?.length        && `${backup.goals.length} goals`,
+      backup.projects?.length     && `${backup.projects.length} projects`,
+      backup.notes?.length        && `${backup.notes.length} notes`,
+    ].filter(Boolean).join(', ');
+    if (!confirm(`Import backup from ${backup.exportedAt.slice(0,10)}?\n\nThis will overwrite: ${summary}\n\nCurrent data will be replaced.`)) {
+      status.textContent = 'Import cancelled.';
+      input.value = '';
+      return;
+    }
+    status.textContent = 'Restoring…';
+    const writes = [];
+    if (backup.tasks)         writes.push(apiFetch('POST', '/api/tasks',          { tasks:         backup.tasks }));
+    if (backup.goals)         writes.push(apiFetch('POST', '/api/goals',          { goals:         backup.goals }));
+    if (backup.projects)      writes.push(apiFetch('POST', '/api/projects',       { projects:      backup.projects }));
+    if (backup.notes)         writes.push(apiFetch('POST', '/api/notes',          { notes:         backup.notes }));
+    if (backup.completionLog) writes.push(apiFetch('POST', '/api/completion-log', { log:           backup.completionLog }));
+    if (backup.memory)        writes.push(apiFetch('POST', '/api/memory',         { memory:        backup.memory }));
+    if (backup.notifications) writes.push(apiFetch('POST', '/api/notifications/save', { notifications: backup.notifications }));
+    await Promise.all(writes);
+    await syncNow();
+    status.style.color = 'var(--accent2)';
+    status.textContent = `✓ Restored from ${backup.exportedAt.slice(0,10)}.`;
+  } catch (e) {
+    status.style.color = 'var(--high)';
+    status.textContent = 'Import failed: ' + e.message;
+  }
+  input.value = '';
+}
+
 </script>
 </body>
 </html>
