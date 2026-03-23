@@ -129,8 +129,12 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 1024) {
     ? `${systemPrompt}\n\nAbout the user:\n${memory}`
     : systemPrompt;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -143,6 +147,7 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 1024) {
       messages: [{ role: 'user', content: userMessage }]
     })
   });
+  clearTimeout(timeout);
 
   if (!response.ok) {
     const err = await response.json();
@@ -404,18 +409,24 @@ app.post('/api/trigger/:job', requireAuth, async (req, res) => {
   res.json({ ok: true, message: 'Morning briefing triggered — check your email in ~30s' });
 
   try {
+    console.log('[TRIGGER] fetching tasks/goals from DB...');
     const tasks     = await dbGet('tasks') || [];
     const goals     = await dbGet('goals') || [];
+    console.log('[TRIGGER] got', tasks.length, 'tasks,', goals.length, 'goals');
     const openTasks = tasks.filter(t => !t.done);
     const openGoals = goals.filter(g => !g.achieved);
     const today     = new Date();
     const taskCtx   = openTasks.map(t => `- [${t.priority.toUpperCase()}] ${t.title}${t.dueDate ? `, due ${t.dueDate}` : ''}`).join('\n') || 'None';
     const goalCtx   = openGoals.map(g => `- ${g.title}`).join('\n') || 'None';
     const systemPrompt = `You are a personal assistant writing a test morning briefing. Format as HTML. Keep under 200 words. Today is ${today.toLocaleDateString()}.`;
+    console.log('[TRIGGER] calling Claude...');
     const briefing  = await callClaude(systemPrompt, `Tasks:\n${taskCtx}\n\nGoals:\n${goalCtx}`, 512);
+    console.log('[TRIGGER] Claude responded, sending email...');
     await sendEmail(`☀️ Test Briefing — ${today.toLocaleTimeString()}`, emailTemplate('Test Morning Briefing', briefing));
+    console.log('[TRIGGER] email sent successfully');
   } catch (err) {
     console.error('[TRIGGER ERROR]', err.message);
+    console.error('[TRIGGER STACK]', err.stack);
   }
 });
 
@@ -494,8 +505,11 @@ app.post('/api/claude-convo', requireAuth, async (req, res) => {
     : systemPrompt;
 
   try {
+    const controller2 = new AbortController();
+    const timeout2 = setTimeout(() => controller2.abort(), 90000);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: controller2.signal,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -508,6 +522,7 @@ app.post('/api/claude-convo', requireAuth, async (req, res) => {
         messages: messages.slice(-20) // Keep last 20 turns to avoid token overflow
       })
     });
+    clearTimeout(timeout2);
 
     if (!response.ok) {
       const err = await response.json();
