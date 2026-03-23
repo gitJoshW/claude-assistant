@@ -170,7 +170,9 @@ function parseJSON(raw) {
 
 // ── EMAIL ──────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // STARTTLS — works on Railway (port 465 is blocked)
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD
