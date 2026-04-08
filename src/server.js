@@ -21,7 +21,7 @@ require('dotenv').config();
 const express    = require('express');
 const cors       = require('cors');
 const cron       = require('node-cron');
-const nodemailer = require('nodemailer');
+const { Resend }  = require('resend');
 const path       = require('path');
 const { Pool }   = require('pg');
 
@@ -169,29 +169,22 @@ function parseJSON(raw) {
 }
 
 // ── EMAIL ──────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // STARTTLS — works on Railway (port 465 is blocked)
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendEmail(subject, htmlBody) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.log('[EMAIL SKIPPED - not configured]\n', subject);
+  if (!process.env.RESEND_API_KEY) {
+    console.log('[EMAIL SKIPPED - RESEND_API_KEY not configured]\n', subject);
     return;
   }
 
-  await transporter.sendMail({
-    from: `"My Assistant" <${process.env.GMAIL_USER}>`,
+  const { error } = await resend.emails.send({
+    from: 'My Personal Assistant <assistant@updates.bettercustomerexperiences.com>',
     to: process.env.NOTIFY_EMAIL,
     subject,
     html: htmlBody
   });
 
+  if (error) throw new Error(error.message);
   console.log(`[EMAIL SENT] ${subject}`);
 
   // Persist notification log with full content so app can display it
