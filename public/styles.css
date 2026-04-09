@@ -236,6 +236,7 @@ textarea::placeholder { color: var(--text-muted); }
   gap: .5rem;
 }
 .task-group-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.task-group-label.completed { margin-top: 1.5rem; }
 
 /* ── TASK CARD ───────────────────────────────────────────────── */
 .task-card {
@@ -607,6 +608,110 @@ textarea::placeholder { color: var(--text-muted); }
 .drawer-section       { font-size: .72rem; font-weight: 500; color: var(--text-dim); letter-spacing: .04em; margin-bottom: .85rem; margin-top: .85rem; }
 .drawer-section:first-of-type { margin-top: 0; }
 #drawer-filter .fi    { margin-bottom: .2rem; }
+
+/* ── UTILITIES ───────────────────────────────────────────────── */
+.hidden { display: none; }
+.btn-full { width: 100%; }
+
+/* ── TOPBAR SYNC BUTTON ──────────────────────────────────────── */
+.topbar-btn { font-size: .68rem; padding: .3rem .7rem; color: #fff; border-color: rgba(255,255,255,.3); }
+
+/* ── SIDEBAR ACTIONS ─────────────────────────────────────────── */
+.sidebar-actions { margin-top: 1.5rem; display: flex; flex-direction: column; gap: .4rem; }
+.sidebar-actions .btn-danger { color: var(--high); border-color: var(--high); }
+
+/* ── SECTION LABEL ROW (with inline control) ─────────────────── */
+.section-label.row { display: flex; align-items: center; justify-content: space-between; }
+
+/* ── SNOOZE DROPDOWN MENU ────────────────────────────────────── */
+.snooze-menu-wrap { position: relative; display: inline-block; }
+.snooze-menu { display: none; position: absolute; left: 0; top: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow-md); z-index: 50; min-width: 120px; padding: .3rem 0; }
+.snooze-menu-item { padding: .35rem .8rem; font-size: .72rem; cursor: pointer; color: var(--text-dim); }
+.snooze-menu-item:hover { background: var(--surface2); }
+
+/* ── SNOOZE INLINE BUTTONS (condensed row detail) ────────────── */
+.snooze-inline-row { margin-top: .4rem; display: flex; gap: .35rem; flex-wrap: wrap; }
+.snooze-inline-btn { font-size: .65rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text-dim); padding: .15rem .4rem; cursor: pointer; box-shadow: none; }
+.snooze-inline-btn:hover { background: var(--border); }
+.delete-inline-btn { font-size: .65rem; background: transparent; border: 1px solid var(--high); border-radius: 4px; color: var(--high); padding: .15rem .4rem; cursor: pointer; box-shadow: none; }
+.unsnooze-btn { font-size: .65rem; background: transparent; border: none; color: var(--accent); cursor: pointer; padding: 0; box-shadow: none; }
+.unsnooze-btn.underline { text-decoration: underline; font-size: .68rem; }
+
+/* ── TASK ROW DETAIL EXTRAS ──────────────────────────────────── */
+.task-customer-tag { font-size: .67rem; color: var(--text-muted); }
+.task-row-arrow { font-size: .65rem; color: var(--text-muted); margin-left: .15rem; }
+.task-reason-line { margin-top: .3rem; font-style: italic; }
+.task-completed-line { margin-top: .2rem; font-size: .72rem; color: var(--accent); }
+.task-customer-line { margin-top: .2rem; }
+.snoozed-status-row { margin-top: .3rem; display: flex; align-items: center; gap: .5rem; }
+
+/* ── PARSE PREVIEW ───────────────────────────────────────────── */
+.parse-summary { font-size: .8rem; color: var(--text-dim); margin-bottom: .85rem; font-style: italic; }
+.parse-section-label { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .4rem; font-weight: 500; }
+.parse-section-label.has-gap { margin-top: .75rem; }
+.parse-item { display: flex; align-items: center; gap: .5rem; padding: .4rem .6rem; border-radius: 6px; margin-bottom: .3rem; }
+.parse-item-task { background: var(--surface2); border: 1px solid var(--border); }
+.parse-item-log  { background: #e3f2fd; border: 1px solid #bbdefb; }
+.parse-item-idea { background: #f3eeff; border: 1px solid #d1c4e9; }
+.parse-check      { width: 14px; height: 14px; accent-color: var(--accent); }
+.parse-check-log  { width: 14px; height: 14px; accent-color: #1565c0; }
+.parse-check-idea { width: 14px; height: 14px; accent-color: var(--project); }
+.parse-label { font-size: .78rem; flex: 1; cursor: pointer; }
+.parse-date { font-size: .65rem; color: var(--text-muted); }
+.parse-date-log { font-size: .65rem; color: #1565c0; }
+
+/* ── NOTES CARD ──────────────────────────────────────────────── */
+.note-card { margin-bottom: .75rem; }
+.note-header-badges { display: flex; gap: .4rem; align-items: center; }
+.note-badge-task  { font-size: .65rem; color: var(--accent); }
+.note-badge-log   { font-size: .65rem; color: #1565c0; }
+.note-badge-idea  { font-size: .65rem; color: var(--project); }
+.note-summary     { font-size: .72rem; color: var(--accent); font-style: italic; margin-bottom: .5rem; }
+.note-body        { font-size: .78rem; color: var(--text-dim); white-space: pre-wrap; line-height: 1.65; }
+.note-ideas-section { margin-top: .6rem; border-top: 1px solid var(--border); padding-top: .5rem; }
+.note-idea-line   { font-size: .72rem; color: var(--project); }
+
+/* ── NOTIFICATION INBOX CARD ─────────────────────────────────── */
+.notif-header-right { display: flex; align-items: center; gap: .5rem; }
+.notif-time-str  { font-size: .65rem; color: var(--text-muted); }
+.notif-del-btn   { opacity: .7; font-size: .63rem; padding: .15rem .35rem; }
+.notif-body-text { font-size: .8rem; line-height: 1.7; color: var(--text); }
+.notif-empty-text { font-size: .75rem; color: var(--text-muted); font-style: italic; }
+.notifs-toolbar  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.notifs-toolbar-note { font-size: .72rem; color: var(--text-muted); }
+.notifs-clear-btn { font-size: .68rem; color: var(--high); border-color: var(--high); }
+
+/* ── SIDEBAR NOTIFICATION LOG EMPTY STATE ────────────────────── */
+.log-empty      { font-size: .73rem; color: var(--text-muted); font-style: italic; }
+.list-none-item { font-size: .72rem; color: var(--text-muted); padding: .25rem .7rem; }
+
+/* ── CLAUDE RESPONSE TEXT ────────────────────────────────────── */
+.claude-text    { font-size: .78rem; line-height: 1.7; color: var(--text-dim); white-space: pre-wrap; margin-top: .85rem; }
+.claude-text-lg { font-size: .82rem; line-height: 1.7; color: var(--text-dim); white-space: pre-wrap; }
+
+/* ── GOAL CARD INTERNALS ─────────────────────────────────────── */
+.goal-desc-field { font-size: .78rem; line-height: 1.6; color: var(--text-dim); width: 100%; min-height: 0; padding: .25rem .4rem; resize: none; background: transparent; border: 1px solid transparent; border-radius: 4px; margin-bottom: .35rem; font-family: 'Instrument Sans', sans-serif; transition: border-color .15s, background .15s; }
+.goal-desc-field:focus { border-color: var(--accent2); background: var(--surface2); outline: none; }
+.goal-savings-text { font-size: .72rem; color: var(--text-muted); margin-bottom: .4rem; }
+.goal-savings-text strong { color: var(--text-dim); }
+.goal-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .5rem; margin-bottom: .25rem; }
+.goal-field-label { font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .2rem; }
+.goal-num-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size: .78rem; padding: .3rem .6rem; outline: none; min-height: unset; width: 100%; transition: border-color .2s; }
+.goal-num-input:focus { border-color: var(--accent2); }
+.goal-notes-section { border-top: 1px solid var(--border); margin-top: .6rem; padding-top: .55rem; }
+.goal-note-textarea { font-size: .73rem; font-style: italic; border-top: 1px solid var(--accent2); padding-top: .5rem; margin-top: .25rem; min-height: 48px; }
+
+/* ── DRAWER SECTION SPACING ──────────────────────────────────── */
+.drawer-section + .drawer-section { margin-top: .75rem; }
+
+/* ── MISC ────────────────────────────────────────────────────── */
+.modal-label-note { font-weight: 400; color: var(--text-muted); }
+.modal-submit { width: 100%; margin-top: 1rem; }
+.import-label { display: block; width: 100%; }
+.backup-desc { font-size: .72rem; color: var(--text-muted); line-height: 1.6; margin-bottom: .75rem; }
+.backup-status { font-size: .71rem; margin-top: .5rem; color: var(--text-muted); }
+.trigger-result { font-size: .72rem; color: var(--text-muted); margin-top: .5rem; }
+mark.search-hl { background: #fff3a3; border-radius: 2px; padding: 0 1px; }
 
 /* ── RESPONSIVE ──────────────────────────────────────────────── */
 @media (max-width: 900px) {

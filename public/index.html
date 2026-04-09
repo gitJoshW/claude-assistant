@@ -22,10 +22,10 @@
     <p>Enter your server URL and PIN. Set both in your Render environment variables.</p>
     <label>Server URL</label>
     <input type="text" id="server-url-input" placeholder="https://claude-assistant-production.up.railway.app/" autocomplete="off" autocapitalize="none" />
-    <label>PIN <span style="font-weight:400;color:var(--text-muted)">(set API_PIN in Render env vars)</span></label>
+    <label>PIN <span class="modal-label-note">(set API_PIN in Render env vars)</span></label>
     <input type="password" id="server-secret-input" placeholder="e.g. 7291" inputmode="numeric" autocomplete="current-password" />
-    <div class="modal-error" id="modal-error" style="display:none"></div>
-    <button onclick="connectServer()" style="width:100%;margin-top:1rem">Connect</button>
+    <div class="modal-error hidden" id="modal-error"></div>
+    <button onclick="connectServer()" class="modal-submit">Connect</button>
   </div>
 </div>
 
@@ -40,7 +40,7 @@
       <div class="sync-dot" id="sync-dot"></div>
       <span id="sync-label">Not connected</span>
     </div>
-    <button class="btn-outline" style="font-size:.68rem;padding:.3rem .7rem;color:#fff;border-color:rgba(255,255,255,.3)" onclick="syncNow()">Sync</button>
+    <button class="btn-outline topbar-btn" onclick="syncNow()">Sync</button>
   </div>
 </div>
 
@@ -48,13 +48,13 @@
 
   <!-- LEFT SIDEBAR -->
   <div class="sidebar-left">
-    <div id="pause-banner" style="display:none" class="pause-banner">
+    <div id="pause-banner" class="pause-banner hidden">
       <span>⏸ <strong>Notifications paused</strong></span>
-      <button class="btn-outline btn-sm" onclick="setPause(false)" style="font-size:.65rem;padding:.2rem .5rem;white-space:nowrap">Resume</button>
+      <button class="btn-outline btn-sm" onclick="setPause(false)" style="white-space:nowrap">Resume</button>
     </div>
-    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+    <div class="section-label row">
       <span>Notifications</span>
-      <button id="pause-btn" class="btn-outline btn-sm" style="font-size:.65rem;padding:.15rem .45rem" onclick="togglePause()">⏸ Pause</button>
+      <button id="pause-btn" class="btn-outline btn-sm" onclick="togglePause()">⏸ Pause</button>
     </div>
     <div class="section-label">Tasks</div>
     <div id="filter-all" class="fi" onclick="setFilter('all')"><span>All</span><span class="fc" id="count-all">0</span></div>
@@ -78,9 +78,9 @@
     <div class="section-label">Projects</div>
     <div id="project-filter-list"></div>
 
-    <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.4rem">
+    <div class="sidebar-actions">
       <button class="btn-outline btn-sm" onclick="clearDone()">Clear completed</button>
-      <button class="btn-outline btn-sm" style="color:var(--high);border-color:var(--high)" onclick="resetAll()">Reset all tasks</button>
+      <button class="btn-outline btn-sm btn-danger" onclick="resetAll()">Reset all tasks</button>
     </div>
   </div>
 
@@ -134,11 +134,11 @@
     </div>
 
     <!-- ── PROJECTS VIEW ── -->
-    <div id="view-projects" style="display:none">
+    <div id="view-projects" class="hidden">
       <div class="input-card">
         <div class="input-card-title">Create a project</div>
         <input type="text" id="project-name-input" class="text-input" placeholder="Project name" />
-        <textarea id="project-desc-input" placeholder="What is this project? What does done look like?" style="min-height:60px"></textarea>
+        <textarea id="project-desc-input" placeholder="What is this project? What does done look like?" rows="3"></textarea>
         <div class="btn-row">
           <button onclick="addProject()">Create Project</button>
         </div>
@@ -147,11 +147,11 @@
     </div>
 
     <!-- ── GOALS VIEW ── -->
-    <div id="view-goals" style="display:none">
+    <div id="view-goals" class="hidden">
       <div class="input-card">
         <div class="input-card-title">Add a long-term goal</div>
         <input type="text" id="goal-title-input" class="text-input" placeholder="Goal title" />
-        <textarea id="goal-desc-input" placeholder="Why it matters, what done looks like" style="min-height:55px;margin-bottom:.6rem"></textarea>
+        <textarea id="goal-desc-input" placeholder="Why it matters, what done looks like" rows="2" style="margin-bottom:.6rem"></textarea>
         <div class="input-row">
           <span>Target ($):</span>
           <input type="number" id="goal-target-input" placeholder="25000" min="0" step="100" style="width:100px" />
@@ -163,15 +163,15 @@
           <button class="btn-outline" id="goals-ask-btn" onclick="askClaudeAboutGoals()">Ask Claude about my goals</button>
         </div>
       </div>
-      <div id="goals-claude-resp" style="display:none" class="panel-box">
+      <div id="goals-claude-resp" class="panel-box hidden">
         <div class="panel-box-header"><span class="panel-box-title">Claude's perspective</span></div>
-        <div class="panel-box-body"><div id="goals-claude-text" style="font-size:.78rem;line-height:1.7;color:var(--text-dim);white-space:pre-wrap"></div></div>
+        <div class="panel-box-body"><div id="goals-claude-text" class="claude-text" style="margin-top:0"></div></div>
       </div>
       <div id="goals-container"></div>
     </div>
 
     <!-- ── NOTES VIEW ── -->
-    <div id="view-notes" style="display:none">
+    <div id="view-notes" class="hidden">
       <div class="notes-search-bar">
         <input class="notes-search-input" id="notes-search" placeholder="Search notes…" oninput="renderNotes()" />
         <button class="notes-filter-btn active" id="nf-all" onclick="setNotesFilter('all')">All</button>
@@ -188,7 +188,7 @@
           <span class="hint">Claude extracts tasks, logs events, captures ideas</span>
         </div>
       </div>
-      <div id="notes-parsed-result" style="display:none" class="input-card" style="border-color:var(--accent2)">
+      <div id="notes-parsed-result" class="input-card hidden" style="border-color:var(--accent2)">
         <div class="input-card-title" style="color:var(--accent)">Claude found these — confirm to save</div>
         <div id="notes-parsed-content"></div>
         <div class="btn-row" style="margin-top:1rem">
@@ -200,10 +200,10 @@
     </div>
 
     <!-- ── NOTIFICATIONS / INBOX VIEW ── -->
-    <div id="view-notifs" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-        <span style="font-size:.72rem;color:var(--text-muted)">Notifications older than 30 days are removed automatically.</span>
-        <button class="btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:.68rem;color:var(--high);border-color:var(--high)">Clear all</button>
+    <div id="view-notifs" class="hidden">
+      <div class="notifs-toolbar">
+        <span class="notifs-toolbar-note">Notifications older than 30 days are removed automatically.</span>
+        <button class="btn-outline btn-sm notifs-clear-btn" onclick="clearAllNotifs()">Clear all</button>
       </div>
       <div id="notifs-list"></div>
     </div>
@@ -215,9 +215,9 @@
     <div class="panel-box">
       <div class="panel-box-header"><span class="panel-box-title">Ask Claude</span></div>
       <div class="panel-box-body">
-        <textarea id="ask-input" placeholder="What should I focus on?&#10;When did I last change the smoke detector batteries?" style="min-height:65px;margin-bottom:.6rem"></textarea>
-        <button id="ask-btn" onclick="askClaude()" style="width:100%">Ask</button>
-        <div id="claude-response" style="font-size:.78rem;line-height:1.7;color:var(--text-dim);white-space:pre-wrap;margin-top:.85rem">Claude's answer will appear here.</div>
+        <textarea id="ask-input" placeholder="What should I focus on?&#10;When did I last change the smoke detector batteries?" rows="3" style="margin-bottom:.6rem"></textarea>
+        <button id="ask-btn" onclick="askClaude()" class="btn-full">Ask</button>
+        <div id="claude-response" class="claude-text">Claude's answer will appear here.</div>
       </div>
     </div>
 
@@ -227,15 +227,15 @@
         <button class="btn-outline btn-sm" onclick="loadNotificationLog()">Refresh</button>
       </div>
       <div class="panel-box-body">
-        <div id="notif-log"><span style="font-size:.73rem;color:var(--text-muted);font-style:italic">No notifications sent yet.</span></div>
+        <div id="notif-log"><span class="log-empty">No notifications sent yet.</span></div>
       </div>
     </div>
 
     <div class="panel-box">
       <div class="panel-box-header"><span class="panel-box-title">Test Notifications</span></div>
       <div class="panel-box-body">
-        <button id="trigger-btn" onclick="triggerMorningBriefing()" style="width:100%">Send Morning Briefing Now</button>
-        <div id="trigger-result" style="font-size:.72rem;color:var(--text-muted);margin-top:.5rem"></div>
+        <button id="trigger-btn" onclick="triggerMorningBriefing()" class="btn-full">Send Morning Briefing Now</button>
+        <div id="trigger-result" class="trigger-result"></div>
       </div>
     </div>
 
@@ -245,20 +245,20 @@
         <button class="btn-outline btn-sm" onclick="saveMemory()">Save</button>
       </div>
       <div class="panel-box-body">
-        <textarea id="memory-text" placeholder="Tell Claude about yourself — role, priorities, work style…" style="min-height:80px"></textarea>
+        <textarea id="memory-text" placeholder="Tell Claude about yourself — role, priorities, work style…" rows="4"></textarea>
       </div>
     </div>
 
     <div class="panel-box">
       <div class="panel-box-header"><span class="panel-box-title">Data Backup</span></div>
       <div class="panel-box-body">
-        <p style="font-size:.72rem;color:var(--text-muted);line-height:1.6;margin-bottom:.75rem">Export everything to a JSON file, or restore from a previous backup.</p>
-        <button onclick="exportData()" style="width:100%;margin-bottom:.5rem">⬇ Export All Data</button>
-        <label style="display:block;width:100%">
-          <button class="btn-outline" onclick="document.getElementById('import-file').click()" style="width:100%">⬆ Import from Backup</button>
-          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)" />
+        <p class="backup-desc">Export everything to a JSON file, or restore from a previous backup.</p>
+        <button onclick="exportData()" class="btn-full" style="margin-bottom:.5rem">⬇ Export All Data</button>
+        <label class="import-label">
+          <button class="btn-outline btn-full" onclick="document.getElementById('import-file').click()">⬆ Import from Backup</button>
+          <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(this)" />
         </label>
-        <div id="backup-status" style="font-size:.71rem;margin-top:.5rem;color:var(--text-muted)"></div>
+        <div id="backup-status" class="backup-status"></div>
       </div>
     </div>
   </div>
@@ -302,22 +302,22 @@
   <div id="mobile-filter-due-soon" class="fi" onclick="setFilter('due-soon');closeDrawer()"><span>⏰ Due soon</span></div>
   <div id="mobile-filter-recurring" class="fi" onclick="setFilter('recurring');closeDrawer()"><span>🔁 Recurring</span></div>
   <div id="mobile-filter-snoozed" class="fi" onclick="setFilter('snoozed');closeDrawer()"><span>💤 Snoozed</span></div>
-  <div class="drawer-section" style="margin-top:.75rem">Priority</div>
+  <div class="drawer-section">Priority</div>
   <div class="fi" onclick="setFilter('high');closeDrawer()">🔴 High</div>
   <div class="fi" onclick="setFilter('medium');closeDrawer()">🟡 Medium</div>
   <div class="fi" onclick="setFilter('low');closeDrawer()">🔵 Low</div>
-  <div class="drawer-section" style="margin-top:.75rem">Categories</div>
+  <div class="drawer-section">Categories</div>
   <div id="mobile-cat-list"></div>
-  <div class="drawer-section" style="margin-top:.75rem">Customers</div>
+  <div class="drawer-section">Customers</div>
   <div id="mobile-customer-list"></div>
 </div>
 
 <div class="drawer" id="drawer-ask">
   <div class="drawer-handle"></div>
   <div class="drawer-section">Ask Claude</div>
-  <textarea id="ask-input-mobile" placeholder="What should I focus on? When did I last change the smoke detector batteries?" style="min-height:80px;margin-bottom:.75rem"></textarea>
-  <button id="ask-btn-mobile" onclick="askClaudeMobile()" style="width:100%;margin-bottom:.85rem">Ask</button>
-  <div id="claude-response-mobile" style="font-size:.82rem;line-height:1.7;color:var(--text-dim);white-space:pre-wrap">Claude's answer will appear here.</div>
+  <textarea id="ask-input-mobile" placeholder="What should I focus on? When did I last change the smoke detector batteries?" rows="4" style="margin-bottom:.75rem"></textarea>
+  <button id="ask-btn-mobile" onclick="askClaudeMobile()" class="btn-full" style="margin-bottom:.85rem">Ask</button>
+  <div id="claude-response-mobile" class="claude-text-lg">Claude's answer will appear here.</div>
 </div>
 
 <script>
@@ -714,7 +714,7 @@ async function loadNotificationLog() {
     const log=await apiFetch('GET','/api/notifications');
     notifLog = log || [];
     const el=document.getElementById('notif-log');
-    if(!log||!log.length){el.innerHTML='<span style="font-size:.73rem;color:var(--text-muted);font-style:italic">No notifications sent yet.</span>';return;}
+    if(!log||!log.length){el.innerHTML='<span class="log-empty">No notifications sent yet.</span>';return;}
     el.innerHTML=[...log].reverse().map(n=>`<div class="notif-item"><div>${esc(n.type)}</div><div class="notif-time">${new Date(n.sentAt).toLocaleString()}</div></div>`).join('');
     renderNotifs(notifLog);
   } catch(e){console.error(e);}
@@ -833,16 +833,16 @@ function renderTasks() {
   const customers=[...new Set(tasks.map(t=>t.customer).filter(Boolean))].sort();
   document.getElementById('customer-list').innerHTML=customers.length
     ? customers.map(c=>`<div class="fi ${activeFilter==='customer:'+c?'active':''}" onclick="setFilter('customer:${esc(c)}')">👤 ${esc(c)}</div>`).join('')
-    : '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
+    : '<div class="list-none-item">None yet</div>';
   const mcu = document.getElementById('mobile-customer-list');
-  if(mcu) mcu.innerHTML = customers.map(c=>`<div class="fi" onclick="setFilter('customer:${esc(c)}');closeDrawer()">👤 ${esc(c)}</div>`).join('') || '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
+  if(mcu) mcu.innerHTML = customers.map(c=>`<div class="fi" onclick="setFilter('customer:${esc(c)}');closeDrawer()">👤 ${esc(c)}</div>`).join('') || '<div class="list-none-item">None yet</div>';
 
   // Project sidebar
   const usedPids=[...new Set(tasks.map(t=>t.projectId).filter(Boolean))];
   const usedProjs=projects.filter(p=>usedPids.some(id=>String(id)===String(p.id)));
   document.getElementById('project-filter-list').innerHTML=usedProjs.length
     ? usedProjs.map(p=>`<div class="fi ${activeFilter==='proj:'+p.id?'active':''}" onclick="setFilter('proj:${p.id}')">📁 ${esc(p.name)}</div>`).join('')
-    : '<div style="font-size:.72rem;color:var(--text-muted);padding:.25rem .7rem">None yet</div>';
+    : '<div class="list-none-item">None yet</div>';
 
   document.getElementById('task-count-label').textContent=`${filtered.length} task${filtered.length!==1?'s':''}`;
 
@@ -857,10 +857,10 @@ function renderTasks() {
 
   if(condensed){
     if(open.length){html+=`<div class="task-group-label">Open · ${open.length}</div>`; html+=open.map(taskRow).join('');}
-    if(done.length){html+=`<div class="task-group-label" style="margin-top:1.25rem">Completed · ${done.length}</div>`; html+=done.map(taskRow).join('');}
+    if(done.length){html+=`<div class="task-group-label completed">Completed · ${done.length}</div>`; html+=done.map(taskRow).join('');}
   } else {
     if(open.length){html+=`<div class="task-group-label">Open · ${open.length}</div>`; html+=open.map(taskCard).join('');}
-    if(done.length){html+=`<div class="task-group-label" style="margin-top:1.5rem">Completed · ${done.length}</div>`; html+=done.map(taskCard).join('');}
+    if(done.length){html+=`<div class="task-group-label completed">Completed · ${done.length}</div>`; html+=done.map(taskCard).join('');}
   }
   container.innerHTML=html;
 }
@@ -871,18 +871,18 @@ function taskRow(t) {
   // Detail section shown when row is clicked
   const detail = `
     <div class="task-row-detail" id="trd-${t.id}">
-      ${t.category ? `<span class="badge badge-cat" style="margin-right:.35rem">${esc(t.category)}</span>` : ''}
-      ${t.recurrence ? `<span class="badge badge-recur" style="margin-right:.35rem">🔁 ${t.recurrence}</span>` : ''}
-      ${snoozed ? `<span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span> <button onclick="unsnoozeTask(${t.id})" style="font-size:.65rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none">Wake up</button>` : ''}
-      ${t.reason ? `<div style="margin-top:.3rem;font-style:italic">${esc(t.reason)}</div>` : ''}
-      ${t.done && t.completedAt ? `<div style="margin-top:.2rem;font-size:.72rem;color:var(--accent)">✓ Completed ${new Date(t.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>` : ''}
-      ${t.customer ? `<div style="margin-top:.2rem">👤 ${esc(t.customer)}</div>` : ''}
-      ${!snoozed ? `<div style="margin-top:.4rem;display:flex;gap:.35rem;flex-wrap:wrap">
-        <button onclick="snoozeTask(${t.id},1);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 day</button>
-        <button onclick="snoozeTask(${t.id},3);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 3 days</button>
-        <button onclick="snoozeTask(${t.id},7);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 week</button>
-        <button onclick="snoozeTask(${t.id},30);event.stopPropagation()" style="font-size:.65rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:.15rem .4rem;cursor:pointer;box-shadow:none">💤 1 month</button>
-        <button onclick="deleteTask(${t.id});event.stopPropagation()" style="font-size:.65rem;background:transparent;border:1px solid var(--high);border-radius:4px;color:var(--high);padding:.15rem .4rem;cursor:pointer;box-shadow:none">delete</button>
+      ${t.category ? `<span class="badge badge-cat">${esc(t.category)}</span>` : ''}
+      ${t.recurrence ? `<span class="badge badge-recur">🔁 ${t.recurrence}</span>` : ''}
+      ${snoozed ? `<span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span> <button class="unsnooze-btn" onclick="unsnoozeTask(${t.id})">Wake up</button>` : ''}
+      ${t.reason ? `<div class="task-reason-line">${esc(t.reason)}</div>` : ''}
+      ${t.done && t.completedAt ? `<div class="task-completed-line">✓ Completed ${new Date(t.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>` : ''}
+      ${t.customer ? `<div class="task-customer-line">👤 ${esc(t.customer)}</div>` : ''}
+      ${!snoozed ? `<div class="snooze-inline-row">
+        <button class="snooze-inline-btn" onclick="snoozeTask(${t.id},1);event.stopPropagation()">💤 1 day</button>
+        <button class="snooze-inline-btn" onclick="snoozeTask(${t.id},3);event.stopPropagation()">💤 3 days</button>
+        <button class="snooze-inline-btn" onclick="snoozeTask(${t.id},7);event.stopPropagation()">💤 1 week</button>
+        <button class="snooze-inline-btn" onclick="snoozeTask(${t.id},30);event.stopPropagation()">💤 1 month</button>
+        <button class="delete-inline-btn" onclick="deleteTask(${t.id});event.stopPropagation()">delete</button>
       </div>` : ''}
     </div>`;
   return `
@@ -891,9 +891,9 @@ function taskRow(t) {
         <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <div class="row-dot ${t.priority}"></div>
-      <div class="task-row-title">${esc(t.title)}${t.customer?` <span style="font-size:.67rem;color:var(--text-muted)">(${esc(t.customer)})</span>`:''}${t.recurrence?' 🔁':''}${snoozed?' 💤':''}</div>
-      ${ds?`<span class="due-date ${ds.cls}" style="font-size:.65rem">${ds.label}</span>`:''}
-      <span style="font-size:.65rem;color:var(--text-muted);margin-left:.15rem">›</span>
+      <div class="task-row-title">${esc(t.title)}${t.customer?` <span class="task-customer-tag">(${esc(t.customer)})</span>`:''}${t.recurrence?' 🔁':''}${snoozed?' 💤':''}</div>
+      ${ds?`<span class="due-date ${ds.cls}">${ds.label}</span>`:''}
+      <span class="task-row-arrow">›</span>
     </div>
     ${detail}`;
 }
@@ -944,18 +944,18 @@ function taskCard(t) {
           oninput="autoResizeTextarea(this)"
           onfocus="autoResizeTextarea(this)">${esc(t.reason||'')}</textarea>
         ${t.done && t.completedAt ? `<div class="last-done">✓ Completed ${new Date(t.completedAt).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>` : lastDone ? `<div class="last-done">Last completed: ${lastDone}</div>` : ''}
-        ${isCurrentlySnoozed(t)?`<div style="margin-top:.3rem;display:flex;align-items:center;gap:.5rem"><span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span><button onclick="unsnoozeTask(${t.id})" style="font-size:.68rem;background:transparent;border:none;color:var(--accent);cursor:pointer;padding:0;box-shadow:none;text-decoration:underline">Wake up</button></div>`:''}
+        ${isCurrentlySnoozed(t)?`<div class="snoozed-status-row"><span class="badge badge-snoozed">💤 Snoozed until ${t.snoozedUntil}</span><button class="unsnooze-btn underline" onclick="unsnoozeTask(${t.id})">Wake up</button></div>`:''}
       </div>
     </div>
     <div class="task-actions">
       <button class="task-action-btn" onclick="toggleHelpPanel(${t.id}, event)">✦ Help me</button>
-      <div style="position:relative;display:inline-block">
+      <div class="snooze-menu-wrap">
         <button class="task-action-btn" onclick="toggleSnoozeMenu(${t.id},event)">💤 Snooze</button>
-        <div id="snooze-menu-${t.id}" style="display:none;position:absolute;left:0;top:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-md);z-index:50;min-width:120px;padding:.3rem 0">
-          <div onclick="snoozeTask(${t.id},1);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 day</div>
-          <div onclick="snoozeTask(${t.id},3);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">3 days</div>
-          <div onclick="snoozeTask(${t.id},7);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 week</div>
-          <div onclick="snoozeTask(${t.id},30);closeSnoozeMenus()" style="padding:.35rem .8rem;font-size:.72rem;cursor:pointer;color:var(--text-dim)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">1 month</div>
+        <div id="snooze-menu-${t.id}" class="snooze-menu">
+          <div class="snooze-menu-item" onclick="snoozeTask(${t.id},1);closeSnoozeMenus()">1 day</div>
+          <div class="snooze-menu-item" onclick="snoozeTask(${t.id},3);closeSnoozeMenus()">3 days</div>
+          <div class="snooze-menu-item" onclick="snoozeTask(${t.id},7);closeSnoozeMenus()">1 week</div>
+          <div class="snooze-menu-item" onclick="snoozeTask(${t.id},30);closeSnoozeMenus()">1 month</div>
         </div>
       </div>
       <button class="task-action-btn del" onclick="deleteTask(${t.id})">delete</button>
@@ -1002,7 +1002,6 @@ function renderGoals() {
   const openCt=goals.filter(g=>!g.achieved).length;
   document.getElementById('tab-goals').textContent=openCt?`Goals (${openCt})`:'Goals';
   if(!goals.length){c.innerHTML=`<div class="empty-state"><span class="big">Dream big</span>Add your first long-term goal above.</div>`;return;}
-  const numStyle=`background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:.78rem;padding:.3rem .6rem;outline:none;min-height:unset;width:100%;transition:border-color .2s`;
   const active=goals.filter(g=>!g.achieved), achieved=goals.filter(g=>g.achieved);
   let html='';
   const gc=g=>{
@@ -1015,23 +1014,23 @@ function renderGoals() {
           <button class="task-action-btn del" onclick="deleteGoal(${g.id})">delete</button>
         </div>
       </div>
-      <textarea style="font-size:.78rem;line-height:1.6;color:var(--text-dim);width:100%;min-height:0;padding:.25rem .4rem;resize:none;background:transparent;border:1px solid transparent;border-radius:4px;margin-bottom:.35rem;font-family:'Instrument Sans',sans-serif;transition:border-color .15s,background .15s" rows="2" placeholder="Add a description — why it matters, what done looks like…" onblur="setGoalDesc(${g.id},this.value)" onfocus="this.style.borderColor='var(--accent2)';this.style.background='var(--surface2)'">${esc(g.description||'')}</textarea>
+      <textarea class="goal-desc-field" rows="2" placeholder="Add a description — why it matters, what done looks like…" onblur="setGoalDesc(${g.id},this.value)" onfocus="this.classList.add('focused')" onblur="setGoalDesc(${g.id},this.value);this.classList.remove('focused')">${esc(g.description||'')}</textarea>
       ${pct!==null?`<div class="goal-progress-row"><div class="goal-bar"><div class="goal-bar-fill" style="width:${pct}%"></div></div><span class="goal-pct">${pct}%</span></div>
-      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.4rem"><strong style="color:var(--text-dim)">$${g.saved.toLocaleString()}</strong> saved of <strong style="color:var(--text-dim)">$${g.target.toLocaleString()}</strong> · $${Math.max(0,g.target-g.saved).toLocaleString()} to go</div>`:''}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem;margin-bottom:.25rem">
-        <div><div style="font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.2rem">Target ($)</div>
-          <input type="number" value="${g.target||''}" min="0" step="100" placeholder="Set target…" style="${numStyle}" onchange="updateGoalProgress(${g.id},'target',this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'" /></div>
-        <div><div style="font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.2rem">Saved ($)</div>
-          <input type="number" value="${g.saved||''}" min="0" step="100" placeholder="0" style="${numStyle}" onchange="updateGoalProgress(${g.id},'saved',this.value)" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'" /></div>
+      <div class="goal-savings-text"><strong>$${g.saved.toLocaleString()}</strong> saved of <strong>$${g.target.toLocaleString()}</strong> · $${Math.max(0,g.target-g.saved).toLocaleString()} to go</div>`:''}
+      <div class="goal-input-grid">
+        <div><div class="goal-field-label">Target ($)</div>
+          <input type="number" class="goal-num-input" value="${g.target||''}" min="0" step="100" placeholder="Set target…" onchange="updateGoalProgress(${g.id},'target',this.value)" /></div>
+        <div><div class="goal-field-label">Saved ($)</div>
+          <input type="number" class="goal-num-input" value="${g.saved||''}" min="0" step="100" placeholder="0" onchange="updateGoalProgress(${g.id},'saved',this.value)" /></div>
       </div>
-      <div style="border-top:1px solid var(--border);margin-top:.6rem;padding-top:.55rem">
+      <div class="goal-notes-section">
         <div class="goal-note-view" onclick="this.style.display='none';document.getElementById('gn-${g.id}').style.display='block';document.getElementById('gn-${g.id}').focus()">${esc(g.note)||'<em>Add a progress note…</em>'}</div>
-        <textarea id="gn-${g.id}" style="display:none;font-size:.73rem;font-style:italic;border-top:1px solid var(--accent2);padding-top:.5rem;margin-top:.25rem;min-height:48px" onblur="saveGoalNote(${g.id})" placeholder="Add a progress note…">${esc(g.note)}</textarea>
+        <textarea id="gn-${g.id}" class="goal-note-textarea hidden" onblur="saveGoalNote(${g.id})" placeholder="Add a progress note…">${esc(g.note)}</textarea>
       </div>
     </div>`;
   };
   if(active.length){html+=`<div class="task-group-label">In Progress · ${active.length}</div>`;html+=active.map(gc).join('');}
-  if(achieved.length){html+=`<div class="task-group-label" style="margin-top:1.5rem">Achieved · ${achieved.length}</div>`;html+=achieved.map(gc).join('');}
+  if(achieved.length){html+=`<div class="task-group-label completed">Achieved · ${achieved.length}</div>`;html+=achieved.map(gc).join('');}
   c.innerHTML=html;
 }
 
@@ -1094,12 +1093,13 @@ function resetNotesFilterUI() {
 
 function toggleSnoozeMenu(id, e) {
   e.stopPropagation();
-  closeSnoozeMenus();
   const m = document.getElementById('snooze-menu-' + id);
-  if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  const isOpen = m && m.style.display === 'block';
+  closeSnoozeMenus();
+  if (m && !isOpen) m.style.display = 'block';
 }
 function closeSnoozeMenus() {
-  document.querySelectorAll('[id^="snooze-menu-"]').forEach(m => m.style.display = 'none');
+  document.querySelectorAll('[id^="snooze-menu-"]').forEach(m => m.style.display = '');
 }
 document.addEventListener('click', closeSnoozeMenus);
 
@@ -1321,7 +1321,7 @@ async function deleteNotif(idx) {
   const el = document.getElementById('notif-log');
   if (el) el.innerHTML = notifLog.length
     ? [...notifLog].reverse().map(n => `<div class="notif-item"><div>${esc(n.type)}</div><div class="notif-time">${new Date(n.sentAt).toLocaleString()}</div></div>`).join('')
-    : '<span style="font-size:.73rem;color:var(--text-muted);font-style:italic">No notifications sent yet.</span>';
+    : '<span class="log-empty">No notifications sent yet.</span>';
 }
 
 async function clearAllNotifs() {
@@ -1353,35 +1353,35 @@ async function parseNote() {
 
 function renderParsedPreview(r) {
   let html = '';
-  if (r.summary) html += `<p style="font-size:.8rem;color:var(--text-dim);margin-bottom:.85rem;font-style:italic">${esc(r.summary)}</p>`;
+  if (r.summary) html += `<p class="parse-summary">${esc(r.summary)}</p>`;
 
   if (r.tasks?.length) {
-    html += `<div style="font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.4rem;font-weight:500">Tasks (${r.tasks.length})</div>`;
+    html += `<div class="parse-section-label">Tasks (${r.tasks.length})</div>`;
     html += r.tasks.map((t,i) => `
-      <div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:.3rem">
-        <input type="checkbox" id="pt-${i}" checked style="accent-color:var(--accent);width:14px;height:14px">
-        <label for="pt-${i}" style="font-size:.78rem;flex:1;cursor:pointer">${esc(t.title)}</label>
+      <div class="parse-item parse-item-task">
+        <input type="checkbox" id="pt-${i}" class="parse-check" checked>
+        <label for="pt-${i}" class="parse-label">${esc(t.title)}</label>
         <span class="badge badge-${t.priority||'medium'}">${t.priority||'medium'}</span>
-        ${t.dueDate ? `<span style="font-size:.65rem;color:var(--text-muted)">${t.dueDate}</span>` : ''}
+        ${t.dueDate ? `<span class="parse-date">${t.dueDate}</span>` : ''}
       </div>`).join('');
   }
 
   if (r.logEntries?.length) {
-    html += `<div style="font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin:.75rem 0 .4rem;font-weight:500">Events logged (${r.logEntries.length})</div>`;
+    html += `<div class="parse-section-label has-gap">Events logged (${r.logEntries.length})</div>`;
     html += r.logEntries.map((l,i) => `
-      <div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:#e3f2fd;border:1px solid #bbdefb;border-radius:6px;margin-bottom:.3rem">
-        <input type="checkbox" id="pl-${i}" checked style="accent-color:#1565c0;width:14px;height:14px">
-        <label for="pl-${i}" style="font-size:.78rem;flex:1;cursor:pointer">📅 ${esc(l.description)}</label>
-        <span style="font-size:.65rem;color:#1565c0">${l.date}</span>
+      <div class="parse-item parse-item-log">
+        <input type="checkbox" id="pl-${i}" class="parse-check-log" checked>
+        <label for="pl-${i}" class="parse-label">📅 ${esc(l.description)}</label>
+        <span class="parse-date-log">${l.date}</span>
       </div>`).join('');
   }
 
   if (r.ideas?.length) {
-    html += `<div style="font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin:.75rem 0 .4rem;font-weight:500">Ideas saved (${r.ideas.length})</div>`;
+    html += `<div class="parse-section-label has-gap">Ideas saved (${r.ideas.length})</div>`;
     html += r.ideas.map((idea,i) => `
-      <div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:#f3eeff;border:1px solid #d1c4e9;border-radius:6px;margin-bottom:.3rem">
-        <input type="checkbox" id="pi-${i}" checked style="accent-color:var(--project);width:14px;height:14px">
-        <label for="pi-${i}" style="font-size:.78rem;flex:1;cursor:pointer">💡 ${esc(idea)}</label>
+      <div class="parse-item parse-item-idea">
+        <input type="checkbox" id="pi-${i}" class="parse-check-idea" checked>
+        <label for="pi-${i}" class="parse-label">💡 ${esc(idea)}</label>
       </div>`).join('');
   }
 
@@ -1462,7 +1462,7 @@ async function deleteNote(id) {
 function highlightMatch(text, q) {
   if (!q) return text;
   const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
-  return text.replace(re, '<mark style="background:#fff3a3;border-radius:2px;padding:0 1px">$1</mark>');
+  return text.replace(re, '<mark class="search-hl">$1</mark>');
 }
 
 function renderNotes() {
@@ -1494,20 +1494,20 @@ function renderNotes() {
   }
   const sorted = [...filtered].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
   c.innerHTML = sorted.map(n => `
-    <div class="panel-box" style="margin-bottom:.75rem;animation:fadeUp .22s ease">
-      <div class="panel-box-header" style="justify-content:space-between">
+    <div class="panel-box note-card">
+      <div class="panel-box-header">
         <span class="panel-box-title">${new Date(n.createdAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
-        <div style="display:flex;gap:.4rem;align-items:center">
-          ${n.tasksExtracted ? `<span style="font-size:.65rem;color:var(--accent)">+${n.tasksExtracted} task${n.tasksExtracted!==1?'s':''}</span>` : ''}
-          ${n.logsExtracted  ? `<span style="font-size:.65rem;color:#1565c0">+${n.logsExtracted} log${n.logsExtracted!==1?'s':''}</span>` : ''}
-          ${n.ideasExtracted ? `<span style="font-size:.65rem;color:var(--project)">+${n.ideasExtracted} idea${n.ideasExtracted!==1?'s':''}</span>` : ''}
+        <div class="note-header-badges">
+          ${n.tasksExtracted ? `<span class="note-badge-task">+${n.tasksExtracted} task${n.tasksExtracted!==1?'s':''}</span>` : ''}
+          ${n.logsExtracted  ? `<span class="note-badge-log">+${n.logsExtracted} log${n.logsExtracted!==1?'s':''}</span>` : ''}
+          ${n.ideasExtracted ? `<span class="note-badge-idea">+${n.ideasExtracted} idea${n.ideasExtracted!==1?'s':''}</span>` : ''}
           <button class="task-action-btn del" onclick="deleteNote(${n.id})">delete</button>
         </div>
       </div>
       <div class="panel-box-body">
-        ${n.summary ? `<div style="font-size:.72rem;color:var(--accent);font-style:italic;margin-bottom:.5rem">${esc(n.summary)}</div>` : ''}
-        <div style="font-size:.78rem;color:var(--text-dim);white-space:pre-wrap;line-height:1.65">${highlightMatch(esc(n.text), q)}</div>
-        ${n.ideas?.length ? `<div style="margin-top:.6rem;border-top:1px solid var(--border);padding-top:.5rem">${n.ideas.map(i=>`<div style="font-size:.72rem;color:var(--project)">💡 ${esc(i)}</div>`).join('')}</div>` : ''}
+        ${n.summary ? `<div class="note-summary">${esc(n.summary)}</div>` : ''}
+        <div class="note-body">${highlightMatch(esc(n.text), q)}</div>
+        ${n.ideas?.length ? `<div class="note-ideas-section">${n.ideas.map(i=>`<div class="note-idea-line">💡 ${esc(i)}</div>`).join('')}</div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -1528,15 +1528,15 @@ function renderNotifs(log) {
   c.innerHTML = [...log].reverse().map((n,i) => {
     const realIdx = log.length - 1 - i;
     return `
-    <div class="panel-box" style="margin-bottom:.85rem;animation:fadeUp .22s ease">
+    <div class="panel-box" style="margin-bottom:.85rem">
       <div class="panel-box-header">
         <span class="panel-box-title">${esc(n.type)}</span>
-        <div style="display:flex;align-items:center;gap:.5rem">
-          <span style="font-size:.65rem;color:var(--text-muted)">${new Date(n.sentAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
-          <button class="task-action-btn del" onclick="deleteNotif(${realIdx})" style="opacity:.7;font-size:.63rem;padding:.15rem .35rem">✕</button>
+        <div class="notif-header-right">
+          <span class="notif-time-str">${new Date(n.sentAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
+          <button class="task-action-btn del notif-del-btn" onclick="deleteNotif(${realIdx})">✕</button>
         </div>
       </div>
-      ${n.html ? `<div class="panel-box-body" style="font-size:.8rem;line-height:1.7;color:var(--text)">${n.html}</div>` : '<div class="panel-box-body"><span style="font-size:.75rem;color:var(--text-muted);font-style:italic">No content saved for this notification.</span></div>'}
+      ${n.html ? `<div class="panel-box-body notif-body-text">${n.html}</div>` : '<div class="panel-box-body"><span class="notif-empty-text">No content saved for this notification.</span></div>'}
     </div>`;
   }).join('');
 }
