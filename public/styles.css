@@ -33,6 +33,7 @@ body {
   font-family: 'Instrument Sans', sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  margin: 0px;
 }
 
 /* ── ANIMATIONS ─────────────────────────────────────────────── */
