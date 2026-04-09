@@ -53,7 +53,7 @@ body {
   z-index: 100;
 }
 .topbar-left  { display: flex; align-items: baseline; gap: .75rem; }
-.topbar h1    { font-family: 'Instrument Serif', serif; font-size: 1.2rem; font-weight: 400; }
+.topbar h1    { font-family: 'Instrument Serif', serif; font-size: 1.2rem; font-weight: 400; color:#fff}
 .topbar-badge { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; background: rgba(255,255,255,.15); padding: .2rem .5rem; border-radius: 20px; }
 .topbar-right { display: flex; align-items: center; gap: 1rem; }
 .sync-status  { font-size: .7rem; color: rgba(255,255,255,.6); display: flex; align-items: center; gap: .4rem; }

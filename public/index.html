@@ -193,7 +193,7 @@
         <div id="notes-parsed-content"></div>
         <div class="btn-row" style="margin-top:1rem">
           <button onclick="confirmParsed()">Save All</button>
-          <button class="btn-outline" onclick="document.getElementById('notes-parsed-result').style.display='none'">Discard</button>
+          <button class="btn-outline" onclick="document.getElementById('notes-parsed-result').classList.add('hidden')">Discard</button>
         </div>
       </div>
       <div id="notes-list"></div>
@@ -652,7 +652,7 @@ async function askClaudeAboutGoals() {
   try {
     const r = await callClaude(`You are a thoughtful personal coach. Be warm and concise — 3-5 sentences. Today is ${new Date().toLocaleDateString()}.`,
       `Goals:\n${goalCtx}\n\nOpen tasks:\n${taskCtx}\n\nAm I keeping sight of my big goals? Any connections or nudges?`);
-    document.getElementById('goals-claude-resp').style.display='block';
+    document.getElementById('goals-claude-resp').classList.remove('hidden');
     document.getElementById('goals-claude-text').textContent=r;
   } catch(e){alert('Error: '+e.message);}
   btn.disabled=false; btn.textContent='Ask Claude about my goals';
@@ -1040,7 +1040,8 @@ function renderGoals() {
 function switchTab(tab) {
   activeTab=tab;
   ['tasks','projects','goals','notes','notifs'].forEach(t=>{
-    document.getElementById('view-'+t).style.display=t===tab?'':'none';
+    const el = document.getElementById('view-'+t);
+    el.classList.toggle('hidden', t !== tab);
     document.getElementById('tab-'+t).className='tab-btn'+(t===tab?' active':'');
   });
 }
@@ -1346,7 +1347,7 @@ async function parseNote() {
     const result = await apiFetch('POST', '/api/notes/parse', { text });
     pendingParsed = { text, result, createdAt: new Date().toISOString() };
     renderParsedPreview(result);
-    document.getElementById('notes-parsed-result').style.display = 'block';
+    document.getElementById('notes-parsed-result').classList.remove('hidden');
   } catch(e) { alert('Parse error: ' + e.message); }
   btn.disabled = false; btn.textContent = 'Parse with Claude';
 }
@@ -1437,7 +1438,7 @@ async function confirmParsed() {
 
   // Reset UI
   document.getElementById('notes-input').value = '';
-  document.getElementById('notes-parsed-result').style.display = 'none';
+  document.getElementById('notes-parsed-result').classList.add('hidden');
   pendingParsed = null;
   renderTasks();
   renderNotes();
