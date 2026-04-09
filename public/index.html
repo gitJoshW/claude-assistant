@@ -1108,6 +1108,7 @@ document.addEventListener('click', closeSnoozeMenus);
 //  UTILS
 // ════════════════════════════════════════════════════════════
 function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function stripStyleTags(html) { return (html||'').replace(/<style[\s\S]*?<\/style>/gi, ''); }
 
 document.addEventListener('keydown', e => {
   if ((e.metaKey||e.ctrlKey) && e.key==='Enter') {
@@ -1537,7 +1538,7 @@ function renderNotifs(log) {
           <button class="task-action-btn del notif-del-btn" onclick="deleteNotif(${realIdx})">✕</button>
         </div>
       </div>
-      ${n.html ? `<div class="panel-box-body notif-body-text">${n.html}</div>` : '<div class="panel-box-body"><span class="notif-empty-text">No content saved for this notification.</span></div>'}
+      ${n.html ? `<div class="panel-box-body notif-body-text">${stripStyleTags(n.html)}</div>` : '<div class="panel-box-body"><span class="notif-empty-text">No content saved for this notification.</span></div>'}
     </div>`;
   }).join('');
 }
