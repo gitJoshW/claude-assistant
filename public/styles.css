@@ -10,9 +10,9 @@
   --surface2:     #f5f2ec;
   --border:       #e8e2d8;
   --border2:      #d4ccbc;
-  --accent:       #2d5016;
-  --accent2:      #4a7c28;
-  --accent-light: #eef5e6;
+  --accent:       #1e3a5f;
+  --accent2:      #2e5f8a;
+  --accent-light: #e8f0f8;
   --text:         #1a1a14;
   --text-dim:     #5a5a48;
   --text-muted:   #9a9a84;
@@ -527,7 +527,7 @@ textarea::placeholder { color: var(--text-muted); }
 .goal-desc              { font-size: .78rem; color: var(--text-dim); line-height: 1.6; margin-bottom: .75rem; }
 .goal-progress-row      { display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem; }
 .goal-bar               { flex: 1; height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
-.goal-bar-fill          { height: 100%; background: linear-gradient(90deg, var(--accent2), #7bc142); border-radius: 99px; transition: width .4s ease; }
+.goal-bar-fill          { height: 100%; background: linear-gradient(90deg, var(--accent2), #4a9fd4); border-radius: 99px; transition: width .4s ease; }
 .goal-pct               { font-size: .7rem; font-weight: 500; color: var(--accent2); min-width: 2.5rem; text-align: right; }
 .goal-note-view         { font-size: .73rem; color: var(--text-muted); font-style: italic; border-top: 1px solid var(--border); padding-top: .55rem; margin-top: .5rem; cursor: pointer; }
 .goal-note-view:hover   { color: var(--text-dim); }

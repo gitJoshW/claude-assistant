@@ -168,6 +168,13 @@ function parseJSON(raw) {
   return JSON.parse(s);
 }
 
+// ── HTML SANITIZER ─────────────────────────────────────────
+// Removes <style> blocks that Claude sometimes generates when
+// asked for HTML — they conflict with the app's own styles.
+function stripStyleTags(html) {
+  return html.replace(/<style[\s\S]*?<\/style>/gi, '').trim();
+}
+
 // ── EMAIL ──────────────────────────────────────────────────
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -249,8 +256,8 @@ function scheduleMorningBriefing() {
 Be warm and practical. Format as HTML using <p>, <strong>, <ul>, <li> tags. Keep under 200 words.
 Today is ${today.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}.`;
 
-      const briefing = await callClaude(systemPrompt,
-        `Write a morning briefing.\n\nOpen tasks:\n${taskContext}\n\nLong-term goals:\n${goalContext}`, 512);
+      const briefing = stripStyleTags(await callClaude(systemPrompt,
+        `Write a morning briefing.\n\nOpen tasks:\n${taskContext}\n\nLong-term goals:\n${goalContext}`, 512));
 
       await sendEmail(
         `☀️ Morning Briefing — ${today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' })}`,
@@ -305,7 +312,7 @@ Return ONLY valid JSON: {"shouldNotify": boolean, "subject": "string", "message"
       console.log(`[JOB] Claude decision — shouldNotify: ${decision.shouldNotify}`);
       if (decision.shouldNotify) {
         await sendEmail(`⚠️ ${decision.subject || 'Tasks Need Attention'}`,
-          emailTemplate('Tasks Due Soon', decision.message, '#c0392b'));
+          emailTemplate('Tasks Due Soon', stripStyleTags(decision.message), '#c0392b'));
       }
     } catch (err) {
       console.error('[JOB ERROR] Due check:', err.message);
@@ -350,7 +357,7 @@ Be encouraging, not nagging. Vary your tone.`;
       if (decision.shouldSend) {
         const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         await sendEmail(`🎯 Focus Check-in — ${timeStr}`,
-          emailTemplate('Stay Focused', decision.message, '#4a7c28'));
+          emailTemplate('Stay Focused', stripStyleTags(decision.message), '#4a7c28'));
       }
     } catch (err) {
       console.error('[JOB ERROR] Focus reminder:', err.message);
@@ -415,7 +422,7 @@ app.post('/api/trigger/:job', requireAuth, async (req, res) => {
     const goalCtx   = openGoals.map(g => `- ${g.title}`).join('\n') || 'None';
     const systemPrompt = `You are a personal assistant writing a test morning briefing. Format as HTML. Keep under 200 words. Today is ${today.toLocaleDateString()}.`;
     console.log('[TRIGGER] calling Claude...');
-    const briefing  = await callClaude(systemPrompt, `Tasks:\n${taskCtx}\n\nGoals:\n${goalCtx}`, 512);
+    const briefing  = stripStyleTags(await callClaude(systemPrompt, `Tasks:\n${taskCtx}\n\nGoals:\n${goalCtx}`, 512));
     console.log('[TRIGGER] Claude responded, sending email...');
     await sendEmail(`☀️ Test Briefing — ${today.toLocaleTimeString()}`, emailTemplate('Test Morning Briefing', briefing));
     console.log('[TRIGGER] email sent successfully');
@@ -648,7 +655,7 @@ ${recentHistory}
 
 Suggest tasks they should consider adding. Be specific — if you suggest checking a smoke detector, say how often that should happen. If you notice something from their history hasn't recurred when it should have, flag it.`;
 
-      const suggestions = await callClaude(systemPrompt, userMessage, 600);
+      const suggestions = stripStyleTags(await callClaude(systemPrompt, userMessage, 600));
 
       await sendEmail(
         `💡 Weekly Task Suggestions — ${today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' })}`,
