@@ -185,7 +185,7 @@ async function sendEmail(subject, htmlBody) {
   }
 
   const { error } = await resend.emails.send({
-    from: 'My Personal Assistant <assistant@updates.bettercustomerexperiences.com>',
+    from: 'My Personal Assistant <assistant@sourcerydeployed.com>',
     to: process.env.NOTIFY_EMAIL,
     subject,
     html: htmlBody

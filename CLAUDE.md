@@ -198,11 +198,11 @@ let secret = '';             // stored in localStorage as 'p3_sec'
 Using Resend SDK (not nodemailer). SMTP is blocked on Railway.
 
 ```js
-from: 'My Personal Assistant <assistant@updates.bettercustomerexperiences.com>'
+from: 'My Personal Assistant <assistant@sourcerydeployed.com>'
 to: process.env.NOTIFY_EMAIL
 ```
 
-Domain `updates.bettercustomerexperiences.com` is verified in Resend dashboard.
+Domain `sourcerydeployed.com` is verified in Resend dashboard.
 
 ---
 
