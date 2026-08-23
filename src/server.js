@@ -64,6 +64,11 @@ async function initDb() {
     );
   `);
 
+  // version/updated_at back conflict detection — added after a task went
+  // missing when a stale browser tab overwrote the tasks array on save.
+  await pool.query(`ALTER TABLE store ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;`);
+  await pool.query(`ALTER TABLE store ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();`);
+
   await pool.query(`
     INSERT INTO store (key, value) VALUES
       ('tasks',            '[]'),
@@ -101,12 +106,50 @@ async function dbGet(key) {
 }
 
 async function dbSet(key, value) {
+  // Always bumps version, even for callers that don't check it (schedulers,
+  // webhooks) — keeps the version column a true count of writes to this key
+  // so the optimistic-concurrency check below can't be bypassed by a write
+  // that came through this path instead of dbSetVersioned.
   await pool.query(
-    `INSERT INTO store (key, value)
-     VALUES ($1, $2)
-     ON CONFLICT (key) DO UPDATE SET value = $2`,
+    `INSERT INTO store (key, value, version, updated_at)
+     VALUES ($1, $2, 1, now())
+     ON CONFLICT (key) DO UPDATE SET value = $2, version = store.version + 1, updated_at = now()`,
     [key, JSON.stringify(value)]
   );
+}
+
+async function dbGetVersioned(key) {
+  const result = await pool.query('SELECT value, version FROM store WHERE key = $1', [key]);
+  if (!result.rows[0]) return { value: null, version: 0 };
+  return { value: JSON.parse(result.rows[0].value), version: result.rows[0].version };
+}
+
+// Optimistic concurrency: only writes if the row's version still matches
+// what the caller last read. Prevents a stale client (e.g. a browser tab
+// left open on another device) from silently clobbering newer data.
+async function dbSetVersioned(key, value, expectedVersion) {
+  const result = await pool.query(
+    `UPDATE store SET value = $1, version = version + 1, updated_at = now()
+     WHERE key = $2 AND version = $3
+     RETURNING version`,
+    [JSON.stringify(value), key, expectedVersion]
+  );
+  if (result.rows[0]) return { ok: true, version: result.rows[0].version };
+  const current = await dbGetVersioned(key);
+  return { ok: false, current: current.value, version: current.version };
+}
+
+// Cheap audit trail — logs which item ids were added/removed on each write
+// so a "where did my task go" question can be answered from Railway logs.
+function logCollectionDiff(key, oldArr, newArr) {
+  oldArr = oldArr || []; newArr = newArr || [];
+  const oldIds = new Set(oldArr.map(x => x.id));
+  const newIds = new Set(newArr.map(x => x.id));
+  const added   = newArr.filter(x => !oldIds.has(x.id)).map(x => x.id);
+  const removed = oldArr.filter(x => !newIds.has(x.id)).map(x => x.id);
+  if (added.length || removed.length) {
+    console.log(`[AUDIT] ${key}: ${oldArr.length} -> ${newArr.length} items | +${added.length} [${added.join(',')}] | -${removed.length} [${removed.join(',')}]`);
+  }
 }
 
 // ── AUTH MIDDLEWARE ────────────────────────────────────────
@@ -379,11 +422,53 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.get('/api/tasks',        requireAuth, async (req, res) => res.json(await dbGet('tasks') || []));
-app.post('/api/tasks',       requireAuth, async (req, res) => { await dbSet('tasks', req.body.tasks || []); res.json({ ok: true }); });
+app.get('/api/tasks', requireAuth, async (req, res) => {
+  const { value, version } = await dbGetVersioned('tasks');
+  res.json({ tasks: value || [], version });
+});
+app.post('/api/tasks', requireAuth, async (req, res) => {
+  const incoming = req.body.tasks || [];
+  const before   = await dbGetVersioned('tasks');
+  if (req.body.force === true) {
+    await dbSet('tasks', incoming);
+    logCollectionDiff('tasks', before.value, incoming);
+    return res.json({ ok: true, version: (await dbGetVersioned('tasks')).version });
+  }
+  if (typeof req.body.version !== 'number') return res.status(400).json({ error: 'version required' });
+  const result = await dbSetVersioned('tasks', incoming, req.body.version);
+  if (!result.ok) {
+    return res.status(409).json({
+      error: 'conflict', message: 'Tasks changed on another device since your last sync.',
+      tasks: result.current, version: result.version
+    });
+  }
+  logCollectionDiff('tasks', before.value, incoming);
+  res.json({ ok: true, version: result.version });
+});
 
-app.get('/api/goals',        requireAuth, async (req, res) => res.json(await dbGet('goals') || []));
-app.post('/api/goals',       requireAuth, async (req, res) => { await dbSet('goals', req.body.goals || []); res.json({ ok: true }); });
+app.get('/api/goals', requireAuth, async (req, res) => {
+  const { value, version } = await dbGetVersioned('goals');
+  res.json({ goals: value || [], version });
+});
+app.post('/api/goals', requireAuth, async (req, res) => {
+  const incoming = req.body.goals || [];
+  const before   = await dbGetVersioned('goals');
+  if (req.body.force === true) {
+    await dbSet('goals', incoming);
+    logCollectionDiff('goals', before.value, incoming);
+    return res.json({ ok: true, version: (await dbGetVersioned('goals')).version });
+  }
+  if (typeof req.body.version !== 'number') return res.status(400).json({ error: 'version required' });
+  const result = await dbSetVersioned('goals', incoming, req.body.version);
+  if (!result.ok) {
+    return res.status(409).json({
+      error: 'conflict', message: 'Goals changed on another device since your last sync.',
+      goals: result.current, version: result.version
+    });
+  }
+  logCollectionDiff('goals', before.value, incoming);
+  res.json({ ok: true, version: result.version });
+});
 
 app.get('/api/memory',       requireAuth, async (req, res) => res.json({ memory: await dbGet('memory') || '' }));
 app.post('/api/memory',      requireAuth, async (req, res) => { await dbSet('memory', req.body.memory || ''); res.json({ ok: true }); });
@@ -462,12 +547,27 @@ start();
 
 // ── PROJECTS ───────────────────────────────────────────────
 app.get('/api/projects', requireAuth, async (req, res) => {
-  res.json(await dbGet('projects') || []);
+  const { value, version } = await dbGetVersioned('projects');
+  res.json({ projects: value || [], version });
 });
 app.post('/api/projects', requireAuth, async (req, res) => {
-  const projects = req.body.projects || [];
-  await dbSet('projects', projects);
-  res.json({ ok: true, count: projects.length });
+  const incoming = req.body.projects || [];
+  const before   = await dbGetVersioned('projects');
+  if (req.body.force === true) {
+    await dbSet('projects', incoming);
+    logCollectionDiff('projects', before.value, incoming);
+    return res.json({ ok: true, version: (await dbGetVersioned('projects')).version, count: incoming.length });
+  }
+  if (typeof req.body.version !== 'number') return res.status(400).json({ error: 'version required' });
+  const result = await dbSetVersioned('projects', incoming, req.body.version);
+  if (!result.ok) {
+    return res.status(409).json({
+      error: 'conflict', message: 'Projects changed on another device since your last sync.',
+      projects: result.current, version: result.version
+    });
+  }
+  logCollectionDiff('projects', before.value, incoming);
+  res.json({ ok: true, version: result.version, count: incoming.length });
 });
 
 // ── COMPLETION LOG ─────────────────────────────────────────
@@ -479,13 +579,28 @@ app.post('/api/projects', requireAuth, async (req, res) => {
   even after that task has cycled off the active list.
 */
 app.get('/api/completion-log', requireAuth, async (req, res) => {
-  res.json(await dbGet('completion_log') || []);
+  const { value, version } = await dbGetVersioned('completion_log');
+  res.json({ log: value || [], version });
 });
 app.post('/api/completion-log', requireAuth, async (req, res) => {
-  const log = req.body.log || [];
   // Keep last 500 entries to avoid unbounded growth
-  await dbSet('completion_log', log.slice(-500));
-  res.json({ ok: true });
+  const incoming = (req.body.log || []).slice(-500);
+  const before   = await dbGetVersioned('completion_log');
+  if (req.body.force === true) {
+    await dbSet('completion_log', incoming);
+    logCollectionDiff('completion_log', before.value, incoming);
+    return res.json({ ok: true, version: (await dbGetVersioned('completion_log')).version });
+  }
+  if (typeof req.body.version !== 'number') return res.status(400).json({ error: 'version required' });
+  const result = await dbSetVersioned('completion_log', incoming, req.body.version);
+  if (!result.ok) {
+    return res.status(409).json({
+      error: 'conflict', message: 'Completion log changed on another device since your last sync.',
+      log: result.current, version: result.version
+    });
+  }
+  logCollectionDiff('completion_log', before.value, incoming);
+  res.json({ ok: true, version: result.version });
 });
 
 // ── MULTI-TURN CONVERSATION ENDPOINT ─────────────────────
@@ -560,12 +675,27 @@ app.post('/api/notifications/save', requireAuth, async (req, res) => {
 
 // ── NOTES ──────────────────────────────────────────────────
 app.get('/api/notes', requireAuth, async (req, res) => {
-  res.json(await dbGet('notes') || []);
+  const { value, version } = await dbGetVersioned('notes');
+  res.json({ notes: value || [], version });
 });
 app.post('/api/notes', requireAuth, async (req, res) => {
-  const notes = req.body.notes || [];
-  await dbSet('notes', notes.slice(-500));
-  res.json({ ok: true });
+  const incoming = (req.body.notes || []).slice(-500);
+  const before   = await dbGetVersioned('notes');
+  if (req.body.force === true) {
+    await dbSet('notes', incoming);
+    logCollectionDiff('notes', before.value, incoming);
+    return res.json({ ok: true, version: (await dbGetVersioned('notes')).version });
+  }
+  if (typeof req.body.version !== 'number') return res.status(400).json({ error: 'version required' });
+  const result = await dbSetVersioned('notes', incoming, req.body.version);
+  if (!result.ok) {
+    return res.status(409).json({
+      error: 'conflict', message: 'Notes changed on another device since your last sync.',
+      notes: result.current, version: result.version
+    });
+  }
+  logCollectionDiff('notes', before.value, incoming);
+  res.json({ ok: true, version: result.version });
 });
 
 app.post('/api/notes/parse', requireAuth, async (req, res) => {

@@ -331,6 +331,15 @@ let projects      = [];
 let goals         = [];
 let memory        = '';
 let completionLog = [];
+// Server-side write counters for each synced collection — sent back on every
+// save so the server can detect a stale client (e.g. a phone tab left open
+// since before a laptop edit) and reject the overwrite instead of silently
+// accepting it.
+let tasksVersion         = 0;
+let goalsVersion         = 0;
+let projectsVersion      = 0;
+let notesVersion         = 0;
+let completionLogVersion = 0;
 let activeFilter  = 'open';
 let activeTab     = 'tasks';
 let condensed     = localStorage.getItem('condensed') === 'true';
@@ -403,10 +412,12 @@ async function syncNow() {
       apiFetch('GET', '/api/notifications').catch(() => []),
       apiFetch('GET', '/api/pause').catch(() => ({ paused: false }))
     ]);
-    tasks = t; projects = p || []; goals = g;
+    tasks = t.tasks || []; tasksVersion = t.version || 0;
+    projects = p.projects || []; projectsVersion = p.version || 0;
+    goals = g.goals || []; goalsVersion = g.version || 0;
     memory = m.memory || '';
-    completionLog = cl || [];
-    notes = nt || [];
+    completionLog = cl.log || []; completionLogVersion = cl.version || 0;
+    notes = nt.notes || []; notesVersion = nt.version || 0;
     notifLog = nl || [];
     // Auto-expire notifs older than 30 days
     const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -434,13 +445,12 @@ function scheduleSaveTasks() {
   setSyncStatus('syncing', 'Saving…');
   clearTimeout(_saveTasksTimer);
   _saveTasksTimer = setTimeout(async () => {
-    try {
-      await apiFetch('POST', '/api/tasks', { tasks });
+    const ok = await saveTasks();
+    if (ok) {
       setSyncStatus('ok', 'Saved');
       setTimeout(() => setSyncStatus('ok', 'Synced'), 1500);
-    } catch(e) {
+    } else {
       setSyncStatus('error', 'Save failed');
-      console.error('Save error:', e);
     }
   }, 800);
 }
@@ -449,11 +459,11 @@ function scheduleSaveGoals() {
   setSyncStatus('syncing', 'Saving…');
   clearTimeout(_saveGoalsTimer);
   _saveGoalsTimer = setTimeout(async () => {
-    try {
-      await apiFetch('POST', '/api/goals', { goals });
+    const ok = await saveGoals();
+    if (ok) {
       setSyncStatus('ok', 'Saved');
       setTimeout(() => setSyncStatus('ok', 'Synced'), 1500);
-    } catch(e) {
+    } else {
       setSyncStatus('error', 'Save failed');
     }
   }, 800);
@@ -463,9 +473,41 @@ async function apiFetch(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json', 'x-api-secret': secret } };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(serverUrl + path, opts);
-  if (!res.ok) throw new Error(path + ' returned ' + res.status);
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.message || (path + ' returned ' + res.status));
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
 }
+
+// ── VERSIONED COLLECTION SAVES ─────────────────────────────────
+// Wraps a POST to one of the version-checked collection endpoints.
+// On a 409 conflict (another device saved since our last sync), the local
+// array is discarded in favor of a fresh syncNow() — better to force a
+// redo of the edit than to silently overwrite what the other device wrote.
+async function saveCollection(path, bodyField, label, arr, getVersion, setVersion) {
+  try {
+    const res = await apiFetch('POST', path, { [bodyField]: arr, version: getVersion() });
+    setVersion(res.version);
+    return true;
+  } catch (e) {
+    if (e.status === 409) {
+      alert(`Couldn't save — your ${label} changed on another device. Reloading the latest version; please redo your change.`);
+      await syncNow();
+    } else {
+      console.error('Save error:', e);
+    }
+    return false;
+  }
+}
+async function saveTasks()         { return saveCollection('/api/tasks',          'tasks',    'tasks',           tasks,         () => tasksVersion,         v => tasksVersion = v); }
+async function saveGoals()         { return saveCollection('/api/goals',          'goals',    'goals',           goals,         () => goalsVersion,         v => goalsVersion = v); }
+async function saveProjects()      { return saveCollection('/api/projects',       'projects', 'projects',        projects,      () => projectsVersion,      v => projectsVersion = v); }
+async function saveNotes()         { return saveCollection('/api/notes',          'notes',    'notes',           notes,         () => notesVersion,         v => notesVersion = v); }
+async function saveCompletionLog() { return saveCollection('/api/completion-log', 'log',      'completion log',  completionLog, () => completionLogVersion, v => completionLogVersion = v); }
 
 async function callClaude(sys, msg) {
   const d = await apiFetch('POST', '/api/claude', { systemPrompt: sys, userMessage: msg });
@@ -512,7 +554,7 @@ For recurring tasks described in the text (e.g. "weekly", "every 6 months"), set
       recurrence: recurVal || null,
       done: false, createdAt: new Date().toISOString()
     }));
-    await apiFetch('POST', '/api/tasks', { tasks });
+    await saveTasks();
     document.getElementById('task-input').value = '';
     document.getElementById('due-date-input').value = '';
     document.getElementById('recur-select').value = '';
@@ -535,7 +577,7 @@ function addManual() {
   document.getElementById('task-input').value = '';
   document.getElementById('due-date-input').value = '';
   document.getElementById('recur-select').value = '';
-  apiFetch('POST', '/api/tasks', { tasks }); renderTasks();
+  saveTasks(); renderTasks();
 }
 
 async function toggleTask(id) {
@@ -545,7 +587,7 @@ async function toggleTask(id) {
     // Log completion
     const entry = { taskId: t.id, taskTitle: t.title, category: t.category, customer: t.customer || null, projectId: t.projectId || null, projectName: t.projectName || null, recurrence: t.recurrence || null, completedAt: new Date().toISOString() };
     completionLog.push(entry);
-    await apiFetch('POST', '/api/completion-log', { log: completionLog });
+    await saveCompletionLog();
 
     // If recurring, add next occurrence
     if (t.recurrence) {
@@ -558,7 +600,7 @@ async function toggleTask(id) {
     t.done = false;
     delete t.completedAt;
   }
-  await apiFetch('POST', '/api/tasks', { tasks });
+  await saveTasks();
   renderTasks();
 }
 
@@ -584,9 +626,9 @@ function setTaskPriority(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.p
 function setTaskCategory(id, val)  { const t=tasks.find(t=>t.id===id); if(t){t.category=val.trim()||'General'; scheduleSaveTasks(); renderTasks();} }
 function setTaskReason(id, val)    { const t=tasks.find(t=>t.id===id); if(t){t.reason=val.trim(); scheduleSaveTasks();} }
 function setGoalDesc(id, val)      { const g=goals.find(g=>g.id===id); if(g){g.description=val.trim(); scheduleSaveGoals();} }
-function deleteTask(id)            { if (!confirm('Delete this task?')) return; tasks=tasks.filter(t=>t.id!==id); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
-function clearDone()               { tasks=tasks.filter(t=>!t.done); apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
-function resetAll()                { if(!confirm('Delete all tasks?')) return; tasks=[]; apiFetch('POST','/api/tasks',{tasks}); renderTasks(); }
+function deleteTask(id)            { if (!confirm('Delete this task?')) return; tasks=tasks.filter(t=>t.id!==id); saveTasks(); renderTasks(); }
+function clearDone()               { tasks=tasks.filter(t=>!t.done); saveTasks(); renderTasks(); }
+function resetAll()                { if(!confirm('Delete all tasks?')) return; tasks=[]; saveTasks(); renderTasks(); }
 
 // ════════════════════════════════════════════════════════════
 //  PROJECTS
@@ -595,7 +637,7 @@ async function addProject() {
   const name = document.getElementById('project-name-input').value.trim();
   if (!name) return;
   projects.push({ id: newId(), name, description: document.getElementById('project-desc-input').value.trim(), createdAt: new Date().toISOString(), archived: false });
-  await apiFetch('POST', '/api/projects', { projects });
+  await saveProjects();
   document.getElementById('project-name-input').value = '';
   document.getElementById('project-desc-input').value = '';
   renderProjects(); refreshProjectDropdown();
@@ -605,10 +647,7 @@ async function deleteProject(id) {
   if (!confirm('Delete this project? Tasks will remain but lose their project link.')) return;
   projects = projects.filter(p => p.id !== id);
   tasks.forEach(t => { if (String(t.projectId) === String(id)) { t.projectId=null; t.projectName=''; }});
-  await Promise.all([
-    apiFetch('POST', '/api/projects', { projects }),
-    apiFetch('POST', '/api/tasks', { tasks })
-  ]);
+  await Promise.all([saveProjects(), saveTasks()]);
   renderProjects(); renderTasks(); refreshProjectDropdown();
 }
 
@@ -631,7 +670,7 @@ function addGoal() {
   const title = document.getElementById('goal-title-input').value.trim();
   if (!title) return;
   goals.push({ id: newId(), title, description: document.getElementById('goal-desc-input').value.trim(), target: parseFloat(document.getElementById('goal-target-input').value)||null, saved: parseFloat(document.getElementById('goal-saved-input').value)||0, note: '', achieved: false, createdAt: new Date().toISOString() });
-  apiFetch('POST','/api/goals',{goals}); renderGoals();
+  saveGoals(); renderGoals();
   ['goal-title-input','goal-desc-input','goal-target-input','goal-saved-input'].forEach(id=>document.getElementById(id).value='');
 }
 function updateGoalProgress(id, field, val) {
@@ -641,8 +680,8 @@ function updateGoalProgress(id, field, val) {
   if(field!=='note') renderGoals();
 }
 function saveGoalNote(id) { const el=document.getElementById('gn-'+id); if(el) updateGoalProgress(id,'note',el.value); renderGoals(); }
-function toggleGoalAchieved(id) { const g=goals.find(g=>g.id===id); if(g){g.achieved=!g.achieved; apiFetch('POST','/api/goals',{goals}); renderGoals();} }
-function deleteGoal(id) { if(!confirm('Remove this goal?')) return; goals=goals.filter(g=>g.id!==id); apiFetch('POST','/api/goals',{goals}); renderGoals(); }
+function toggleGoalAchieved(id) { const g=goals.find(g=>g.id===id); if(g){g.achieved=!g.achieved; saveGoals(); renderGoals();} }
+function deleteGoal(id) { if(!confirm('Remove this goal?')) return; goals=goals.filter(g=>g.id!==id); saveGoals(); renderGoals(); }
 
 async function askClaudeAboutGoals() {
   const btn=document.getElementById('goals-ask-btn');
@@ -724,7 +763,7 @@ async function triggerMorningBriefing() {
   if(!serverUrl){alert('Connect to server first.');return;}
   const btn=document.getElementById('trigger-btn'); btn.disabled=true; btn.textContent='Sending...';
   try {
-    await apiFetch('POST','/api/tasks',{tasks});
+    await saveTasks();
     const res=await apiFetch('POST','/api/trigger/morning');
     const msg=res.message||'Triggered.';
     document.getElementById('trigger-result').textContent=msg;
@@ -1404,7 +1443,7 @@ async function confirmParsed() {
       projectId: null, projectName: '', recurrence: null,
       done: false, createdAt: new Date().toISOString()
     }));
-    await apiFetch('POST', '/api/tasks', { tasks });
+    await saveTasks();
   }
 
   // Save checked log entries to completion log
@@ -1417,7 +1456,7 @@ async function confirmParsed() {
       completedAt: new Date(l.date+'T12:00:00').toISOString()
     }));
     completionLog = updatedLog;
-    await apiFetch('POST', '/api/completion-log', { log: completionLog });
+    await saveCompletionLog();
   }
 
   // Save ideas as note text
@@ -1435,7 +1474,7 @@ async function confirmParsed() {
     createdAt: pendingParsed.createdAt
   };
   notes.push(noteToSave);
-  await apiFetch('POST', '/api/notes', { notes });
+  await saveNotes();
 
   // Reset UI
   document.getElementById('notes-input').value = '';
@@ -1449,7 +1488,7 @@ async function saveNoteRaw() {
   const text = document.getElementById('notes-input').value.trim();
   if (!text) return;
   notes.push({ id: newId(), text, summary: '', tasksExtracted: 0, logsExtracted: 0, ideasExtracted: 0, ideas: [], createdAt: new Date().toISOString() });
-  await apiFetch('POST', '/api/notes', { notes });
+  await saveNotes();
   document.getElementById('notes-input').value = '';
   renderNotes();
 }
@@ -1457,7 +1496,7 @@ async function saveNoteRaw() {
 async function deleteNote(id) {
   if (!confirm('Delete this note?')) return;
   notes = notes.filter(n => n.id !== id);
-  await apiFetch('POST', '/api/notes', { notes });
+  await saveNotes();
   renderNotes();
 }
 
@@ -1566,11 +1605,11 @@ async function exportData() {
     const backup = {
       exportedAt: new Date().toISOString(),
       version: 1,
-      tasks:          tasksRes,
-      goals:          goalsRes,
-      projects:       projectsRes,
-      notes:          notesRes,
-      completionLog:  logRes,
+      tasks:          tasksRes.tasks,
+      goals:          goalsRes.goals,
+      projects:       projectsRes.projects,
+      notes:          notesRes.notes,
+      completionLog:  logRes.log,
       memory:         memRes.memory || memRes,
       notifications:  notifsRes,
     };
@@ -1614,12 +1653,14 @@ async function importData(input) {
       return;
     }
     status.textContent = 'Restoring…';
+    // force:true — a deliberate, user-confirmed restore should always win,
+    // unlike a regular save it doesn't need to go through the version check.
     const writes = [];
-    if (backup.tasks)         writes.push(apiFetch('POST', '/api/tasks',          { tasks:         backup.tasks }));
-    if (backup.goals)         writes.push(apiFetch('POST', '/api/goals',          { goals:         backup.goals }));
-    if (backup.projects)      writes.push(apiFetch('POST', '/api/projects',       { projects:      backup.projects }));
-    if (backup.notes)         writes.push(apiFetch('POST', '/api/notes',          { notes:         backup.notes }));
-    if (backup.completionLog) writes.push(apiFetch('POST', '/api/completion-log', { log:           backup.completionLog }));
+    if (backup.tasks)         writes.push(apiFetch('POST', '/api/tasks',          { tasks:         backup.tasks,        force: true }));
+    if (backup.goals)         writes.push(apiFetch('POST', '/api/goals',          { goals:         backup.goals,        force: true }));
+    if (backup.projects)      writes.push(apiFetch('POST', '/api/projects',       { projects:      backup.projects,     force: true }));
+    if (backup.notes)         writes.push(apiFetch('POST', '/api/notes',          { notes:         backup.notes,        force: true }));
+    if (backup.completionLog) writes.push(apiFetch('POST', '/api/completion-log', { log:           backup.completionLog, force: true }));
     if (backup.memory)        writes.push(apiFetch('POST', '/api/memory',         { memory:        backup.memory }));
     if (backup.notifications) writes.push(apiFetch('POST', '/api/notifications/save', { notifications: backup.notifications }));
     await Promise.all(writes);
